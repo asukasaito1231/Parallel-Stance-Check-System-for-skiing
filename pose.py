@@ -7,7 +7,7 @@ pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 
 # 動画キャプチャの初期化
-cap = cv2.VideoCapture("people.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("static.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
