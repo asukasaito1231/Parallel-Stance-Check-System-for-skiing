@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import math
 
 # Mediapipeの初期化
 mp_pose = mp.solutions.pose
@@ -7,7 +8,7 @@ pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 
 # 動画キャプチャの初期化
-cap = cv2.VideoCapture("static.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -18,6 +19,13 @@ resize_scale = 1
 
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
+
+# 動画保存の設定
+fps = cap.get(cv2.CAP_PROP_FPS)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter('output.mp4', fourcc, fps, (width, height))
 
 while True:
     ret, frame = cap.read()
@@ -43,6 +51,9 @@ while True:
             small_frame, result.pose_landmarks, mp_pose.POSE_CONNECTIONS
         )
 
+    # フレームを保存
+    # out.write(small_frame)
+
     # 縮小されたフレームを表示
     cv2.imshow('Pose Detection', small_frame)
 
@@ -52,6 +63,7 @@ while True:
 
 # リソースを解放
 cap.release()
+out.release()
 cv2.destroyAllWindows()
 
 
