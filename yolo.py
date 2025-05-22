@@ -1,14 +1,47 @@
 import cv2
 from ultralytics import YOLO
+import numpy as np
 
 # YOLOモデルの読み込み
-model = YOLO('yolov8m-pose.pt')  # より精度の高いモデルに変更
+model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
-# 動画キャプチャの初期化
-cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
-
+# 元の動画を読み込み
+cap = cv2.VideoCapture("far1.mp4")
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
+    exit()
+
+# 動画の情報を取得
+fps = cap.get(cv2.CAP_PROP_FPS)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+# 逆再生動画を保存するための設定
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter('reversed.mp4', fourcc, fps, (width, height))
+
+# フレームを配列に保存
+frames = []
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+    frames.append(frame)
+
+# フレームを逆順に保存
+for frame in reversed(frames):
+    out.write(frame)
+
+# リソースを解放
+cap.release()
+out.release()
+
+# 逆再生動画で動画キャプチャを初期化
+cap = cv2.VideoCapture("reversed.mp4")
+
+if not cap.isOpened():
+    print("Error: 逆再生動画を開けませんでした。")
     exit()
 
 # ウィンドウサイズを変更するscale
@@ -17,7 +50,7 @@ resize_scale = 1
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
 
-# 動画保存の設定
+# 出力動画の設定
 fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
@@ -33,21 +66,17 @@ while True:
     # フレームの高さと幅を取得
     height, width, _ = frame.shape
 
-    # フレームを拡大（遠くの人物の検出精度向上のため）
-    scale_factor = 1.0  # 拡大率
-    enlarged_frame = cv2.resize(frame, (int(width * scale_factor), int(height * scale_factor)))
+    # フレームサイズを縮小
+    small_frame = cv2.resize(frame, (int(width * resize_scale), int(height * resize_scale)))
 
     # YOLOでポーズ推定を実行
-    results = model(enlarged_frame)
+    results = model(small_frame)
 
     # 検出結果を描画
     annotated_frame = results[0].plot()
 
-    # 元のサイズに戻す
-    annotated_frame = cv2.resize(annotated_frame, (width, height))
-
     # フレームを保存
-    out.write(annotated_frame)
+    # out.write(annotated_frame)
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
