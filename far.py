@@ -11,20 +11,18 @@ if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
     exit()
 
+# ウィンドウサイズを変更するscale
+resize_scale = 2
+# 拡大倍率
+scale = 2
+
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
 
-# トラックバーのコールバック関数
-def nothing(x):
-    pass
-
-# トラックバーの作成（初期値100、最大値200）
-cv2.createTrackbar('Zoom', 'Pose Detection', 100, 200, nothing)
-
 # 動画保存の設定
 fps = cap.get(cv2.CAP_PROP_FPS)
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter('output-standard.mp4', fourcc, fps, (width, height))
 
@@ -34,24 +32,36 @@ while True:
         print("動画の再生が終了しました。")
         break
 
-    # トラックバーからズーム値を取得（100を基準に0.5から2.0の範囲）
-    zoom_value = cv2.getTrackbarPos('Zoom', 'Pose Detection') / 100.0
-    
-    # デバッグ用：ズーム値を表示
-    print(f"現在のズーム値: {zoom_value:.2f}")
-
     # フレームの高さと幅を取得
     height, width, _ = frame.shape
 
-    # ズーム値に基づいて新しいサイズを計算
-    new_width = int(width * zoom_value)
-    new_height = int(height * zoom_value)
+    # 拡大処理
 
-    # フレームサイズをズーム値に基づいて調整
-    resized_frame = cv2.resize(frame, (new_width, new_height))
+    # 縮小処理を防ぐ
+    if int(scale) < 1:
+        scale = 1
+
+    # トリミング領域の幅と高さを計算
+    roi_width = width / int(scale)
+    roi_height = height / int(scale)
+
+    # トリミング開始位置と終了位置を決める
+    sabun_w1 = int((width - roi_width)/2)
+    sabun_w2 = int((width + roi_width)/2)
+    sabun_h1 = int((height - roi_height)/2)
+    sabun_h2 = int((height + roi_height)/2)
+
+    # フレームの中心領域をトリミング
+    frame = frame[sabun_w1:sabun_w2, sabun_h1:sabun_h2]
+
+    # トリミングしたフレームを元のサイズに拡大
+    frame = cv2.resize(frame, (width, height))
+
+    # フレームサイズを縮小
+    small_frame = cv2.resize(frame, (int(width * resize_scale), int(height * resize_scale)))
 
     # YOLOでポーズ推定を実行
-    results = model(resized_frame)
+    results = model(small_frame)
 
     # 検出結果を描画
     annotated_frame = results[0].plot()
