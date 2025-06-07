@@ -1,5 +1,6 @@
 import cv2
 from ultralytics import YOLO
+import numpy as np
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
@@ -62,6 +63,25 @@ height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter('expand.mp4', fourcc, fps, (width, height))
 
+# 最初のフレームで検出された人物の位置を保存
+first_person_bbox = None
+# 最初のフレームで検出された人物のキーポイントを保存
+first_person_keypoints = None
+
+# 最初のフレームを読み込んで人物を検出
+ret, first_frame = cap.read()
+if ret:
+    # フレームサイズを縮小
+    small_first_frame = cv2.resize(first_frame, (int(width * resize_scale), int(height * resize_scale)))
+    # YOLOでポーズ推定を実行
+    first_results = model(small_first_frame)
+    if len(first_results[0].boxes) > 0:
+        first_person_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
+        first_person_keypoints = first_results[0].keypoints[0].cpu().numpy()
+
+# 動画の最初に戻る
+cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -75,7 +95,6 @@ while True:
     height, width, _ = frame.shape
 
     # 拡大処理
-
     # 縮小処理を防ぐ
     if int(scale) < 1:
         scale = 1
@@ -99,17 +118,30 @@ while True:
     # フレームサイズを縮小
     small_frame = cv2.resize(frame, (int(width * resize_scale), int(height * resize_scale)))
 
-    # YOLOでポーズ推定を実行
-    results = model(small_frame)
+    # 最初のフレームで検出があったらif文を実行
+    if first_person_bbox is not None:
 
-    # 検出結果を描画
-    annotated_frame = results[0].plot()
+        # 現在のフレームでYOLOを実行
+        results = model(small_frame)
+        
+        # 人物が検出されたかどうかを確認
+        if len(results[0].boxes) > 0:
 
-    # 現在のスケール値を表示
-    # cv2.putText(annotated_frame, f'Scale: {scale}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # 最初の人物の検出結果のみを保持
+            results[0].boxes = results[0].boxes[0:1]
+            results[0].keypoints = results[0].keypoints[0:1]
+            annotated_frame = results[0].plot()
+
+        # 人物が検出されなかったら元のフレームを表示
+        else:
+            annotated_frame = small_frame.copy()
+    
+    # 最初のフレームで検出がなかったら元のフレームを表示
+    else:
+        annotated_frame = small_frame.copy()
 
     # フレームを保存
-    out.write(annotated_frame)
+    # out.write(annotated_frame)
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
