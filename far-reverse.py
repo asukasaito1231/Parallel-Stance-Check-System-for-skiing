@@ -1,6 +1,5 @@
 import cv2
 from ultralytics import YOLO
-import numpy as np
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
@@ -63,9 +62,6 @@ height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter('expand.mp4', fourcc, fps, (width, height))
 
-# 最初の人物の位置を保存する変数
-first_person_bbox = None
-
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -79,6 +75,7 @@ while True:
     height, width, _ = frame.shape
 
     # 拡大処理
+
     # 縮小処理を防ぐ
     if int(scale) < 1:
         scale = 1
@@ -105,18 +102,11 @@ while True:
     # YOLOでポーズ推定を実行
     results = model(small_frame)
 
-    # 最初の人物の位置を保存
-    if first_person_bbox is None and len(results[0].boxes) > 0:
-        first_person_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+    # 検出結果を描画
+    annotated_frame = results[0].plot()
 
-    # 検出結果を描画（最初の人物のみ）
-    if first_person_bbox is not None:
-        # 最初の人物の検出結果のみを保持
-        results[0].boxes = results[0].boxes[0:1]
-        results[0].keypoints = results[0].keypoints[0:1]
-        annotated_frame = results[0].plot()
-    else:
-        annotated_frame = small_frame.copy()
+    # 現在のスケール値を表示
+    # cv2.putText(annotated_frame, f'Scale: {scale}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     # フレームを保存
     out.write(annotated_frame)
