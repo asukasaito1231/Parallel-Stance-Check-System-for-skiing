@@ -6,6 +6,7 @@ import numpy as np
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
+
 cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
@@ -61,6 +62,7 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter('expand.mp4', fourcc, fps, (width, height))
 #out = cv2.VideoWriter('expand.mp4', fourcc, fps, (width, height))
 
 # 最初のフレームで検出された人物の位置を保存
@@ -77,7 +79,7 @@ if ret:
     first_results = model(small_first_frame)
     if len(first_results[0].boxes) > 0:
         first_person_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
-        first_person_keypoints = first_results[0].keypoints[0].data.cpu().numpy()
+        first_person_keypoints = first_results[0].keypoints[0].cpu().numpy()
         print("最初のフレームで人物を検出しました")
 
 # 動画の最初に戻る
@@ -122,38 +124,16 @@ while True:
     # YOLOでポーズ推定を実行
     results = model(small_frame)
 
-    # 検出結果を描画
     if len(results[0].boxes) > 0:
-        # 最初のフレームで人物が検出されていない場合は、最初の人物を選択
-        if first_person_keypoints is None:
-            results[0].boxes = results[0].boxes[0:1]
-            results[0].keypoints = results[0].keypoints[0:1]
-            # 最初のフレームの情報を更新
-            first_person_keypoints = results[0].keypoints[0].data.cpu().numpy()
-            first_person_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-        else:
-            # 最初のフレームで検出された人物の骨格情報と類似度を計算
-            max_similarity = -1
-            best_idx = 0
-            
-            for i in range(len(results[0].keypoints)):
-                current_keypoints = results[0].keypoints[i].data.cpu().numpy()
-                # キーポイントの類似度を計算（ユークリッド距離の逆数）
-                similarity = 1.0 / (np.linalg.norm(current_keypoints - first_person_keypoints) + 1e-6)
-                if similarity > max_similarity:
-                    max_similarity = similarity
-                    best_idx = i
-            
-            # 最も類似した人物の検出結果のみを保持
-            results[0].boxes = results[0].boxes[best_idx:best_idx+1]
-            results[0].keypoints = results[0].keypoints[best_idx:best_idx+1]
         
+        results[0].boxes = results[0].boxes[0:1]
+        results[0].keypoints = results[0].keypoints[0:1]
         annotated_frame = results[0].plot()
     else:
         annotated_frame = small_frame.copy()
 
     # フレームを保存
-    #out.write(annotated_frame)
+    # out.write(annotated_frame)
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
@@ -165,4 +145,3 @@ while True:
 # リソースを解放
 cap.release()
 out.release()
-cv2.destroyAllWindows()
