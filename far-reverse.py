@@ -125,10 +125,14 @@ while True:
     results = model(small_frame)
 
     if len(results[0].boxes) > 0:
-        
-        results[0].boxes = results[0].boxes[0:1]
-        results[0].keypoints = results[0].keypoints[0:1]
-        annotated_frame = results[0].plot()
+        # 信頼度スコアを取得
+        confidence_scores = results[0].boxes.conf.cpu().numpy()
+        # 最も信頼度の高い人物のインデックスを取得
+        best_person_idx = np.argmax(confidence_scores)
+        # 最も信頼度の高い人物のみを選択
+        results[0].boxes = results[0].boxes[best_person_idx:best_person_idx+1]
+        results[0].keypoints = results[0].keypoints[best_person_idx:best_person_idx+1]
+        annotated_frame = results[0].plot() 
     else:
         annotated_frame = small_frame.copy()
 
