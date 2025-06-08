@@ -6,7 +6,7 @@ import numpy as np
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
-cap = cv2.VideoCapture("short.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -61,7 +61,7 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter('expand.mp4', fourcc, fps, (width, height))
+#out = cv2.VideoWriter('expand.mp4', fourcc, fps, (width, height))
 
 # 最初のフレームで検出された人物の位置を保存
 first_person_bbox = None
@@ -78,6 +78,7 @@ if ret:
     if len(first_results[0].boxes) > 0:
         first_person_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
         first_person_keypoints = first_results[0].keypoints[0].cpu().numpy()
+        print("最初のフレームで人物を検出しました")
 
 # 動画の最初に戻る
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -118,30 +119,20 @@ while True:
     # フレームサイズを縮小
     small_frame = cv2.resize(frame, (int(width * resize_scale), int(height * resize_scale)))
 
-    # 最初のフレームで検出があったらif文を実行
-    if first_person_bbox is not None:
+    # YOLOでポーズ推定を実行
+    results = model(small_frame)
 
-        # 現在のフレームでYOLOを実行
-        results = model(small_frame)
-        
-        # 人物が検出されたかどうかを確認
-        if len(results[0].boxes) > 0:
-
-            # 最初の人物の検出結果のみを保持
-            results[0].boxes = results[0].boxes[0:1]
-            results[0].keypoints = results[0].keypoints[0:1]
-            annotated_frame = results[0].plot()
-
-        # 人物が検出されなかったら元のフレームを表示
-        else:
-            annotated_frame = small_frame.copy()
-    
-    # 最初のフレームで検出がなかったら元のフレームを表示
+    # 検出結果を描画
+    if len(results[0].boxes) > 0:
+        # 最初の人物の検出結果のみを保持
+        results[0].boxes = results[0].boxes[0:1]
+        results[0].keypoints = results[0].keypoints[0:1]
+        annotated_frame = results[0].plot()
     else:
         annotated_frame = small_frame.copy()
 
     # フレームを保存
-    # out.write(annotated_frame)
+    #out.write(annotated_frame)
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
