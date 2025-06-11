@@ -7,7 +7,7 @@ model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("short.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -72,6 +72,10 @@ fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 first_person_bbox = None
 # 最初のフレームで検出された人物のキーポイントを保存
 first_person_keypoints = None
+# 現在のバウンディングボックスを保存
+current_bbox = None
+# 検出領域の拡張範囲（ピクセル）
+ROI_PADDING = 160
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
@@ -87,6 +91,8 @@ if ret:
             first_person_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
             # キーポイントの座標を保存
             first_person_keypoints = first_results[0].keypoints[0].data.cpu().numpy()
+            # 現在のバウンディングボックスを設定
+            current_bbox = first_person_bbox
             print(f"最初のフレームで人物を検出しました")
             print(f"バウンディングボックス座標: {first_person_bbox}")
             print(f"キーポイント座標: {first_person_keypoints}")
@@ -134,14 +140,74 @@ while True:
     # フレームサイズを縮小
     small_frame = cv2.resize(frame, (int(width * resize_scale), int(height * resize_scale)))
 
-    # YOLOでポーズ推定を実行
-    results = model(small_frame)
+    try:
+        if current_bbox is not None:
+            # バウンディングボックスの中心座標を計算
+            center_x = int((current_bbox[0] + current_bbox[2]) / 2)
+            center_y = int((current_bbox[1] + current_bbox[3]) / 2)
 
-    # 検出結果を描画
-    annotated_frame = results[0].plot()
+            # ROIの範囲を計算
+            roi_x1 = max(0, center_x - ROI_PADDING)
+            roi_y1 = max(0, center_y - ROI_PADDING)
+            roi_x2 = min(width, center_x + ROI_PADDING)
+            roi_y2 = min(height, center_y + ROI_PADDING)
 
-    # フレームを保存
-    # out.write(annotated_frame)
+            # ROI領域を切り出し
+            roi = small_frame[roi_y1:roi_y2, roi_x1:roi_x2]
+
+            # ROIを元のサイズに拡大
+            # roi = cv2.resize(roi, (width, height))
+
+            # ROI領域でYOLOを実行
+            results = model(roi)
+
+            if len(results[0].boxes) > 0:
+
+                # 2人以上検出された場合は最も信頼度スコアが高い人物を描画
+                if len(results[0].boxes) > 1:
+                    # 信頼度スコアを取得
+                    confidence_scores = results[0].boxes.conf.cpu().numpy()
+                    # 最も信頼度の高い人物のインデックスを取得
+                    best_person_idx = np.argmax(confidence_scores)
+                    # 最も信頼度の高い人物のみを選択
+                    results[0].boxes = results[0].boxes[best_person_idx:best_person_idx+1]
+                    results[0].keypoints = results[0].keypoints[best_person_idx:best_person_idx+1]
+                    annotated_frame = results[0].plot()
+
+                # 検出されたバウンディングボックスを座標系に変換
+                detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+                current_bbox = [
+                    detected_bbox[0] + roi_x1,
+                    detected_bbox[1] + roi_y1,
+                    detected_bbox[2] + roi_x1,
+                    detected_bbox[3] + roi_y1
+                ]
+                
+                # 検出結果を描画
+                annotated_frame = results[0].plot()
+
+                # ROI以外を黒く塗りつぶす
+                #annotated_frame = cv2.copyMakeBorder(
+                #    annotated_frame,
+                #    roi_y1, height - roi_y2,
+                #    roi_x1, width - roi_x2,
+                #    cv2.BORDER_CONSTANT,
+                #    value=[0, 0, 0]
+                #)
+
+            annotated_frame = results[0].plot()
+
+        #else:
+            # 最初のフレームで検出に失敗した場合はフレーム全体で検出
+            #results = model(small_frame)
+            #if len(results[0].boxes) > 0:
+            #    current_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+            #annotated_frame = results[0].plot()
+
+    except Exception as e:
+        print(f"エラーが発生しました: {e}")
+        results = model(small_frame)
+        annotated_frame = results[0].plot()
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
