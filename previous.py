@@ -7,7 +7,7 @@ model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture("test2.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("short.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -30,6 +30,7 @@ while True:
     if not ret:
         break
     frames.append(frame)
+print('x')
 
 # フレームを逆順に保存
 for frame in reversed(frames):
@@ -66,7 +67,7 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-# out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
+out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
 
 # 最初のフレームで検出された人物の位置を保存
 first_person_bbox = None
@@ -183,49 +184,43 @@ while True:
                     detected_bbox[3] + roi_y1
                 ]
                 
+                print('a')
                 # 検出結果を描画
                 annotated_frame = results[0].plot()
-                # フレームを保存
-                #out.write(annotated_frame)
-
-                # ROI以外を黒く塗りつぶす
-                #annotated_frame = cv2.copyMakeBorder(
-                #    annotated_frame,
-                #    roi_y1, height - roi_y2,
-                #    roi_x1, width - roi_x2,
-                #    cv2.BORDER_CONSTANT,
-                #    value=[0, 0, 0]
-                #)
+                out.write(annotated_frame)
 
             else:
+                print('b')
                 annotated_frame = results[0].plot()
-                #out.write(annotated_frame)
+                out.write(annotated_frame)
 
         else:
+          print('c')
           # YOLOでフレーム全体サイズのままポーズ推定を実行
           results = model(small_frame)
           annotated_frame = results[0].plot()
-          #out.write(annotated_frame)
-
-        #else:
-            # 最初のフレームで検出に失敗した場合はフレーム全体で検出
-            #results = model(small_frame)
-            #if len(results[0].boxes) > 0:
-            #    current_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-            #annotated_frame = results[0].plot()
+          out.write(annotated_frame)
 
     except Exception as e:
-        print(f"エラーが発生しました: {e}")
+        print('d')
         results = model(small_frame)
         annotated_frame = results[0].plot()
+        out.write(annotated_frame)
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
+
+    # out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
+    if annotated_frame is None:
+        print('frame is none')
+        break
+
 # リソースを解放
 cap.release()
-# out.release()
+out.release()
+cv2.destroyAllWindows()
