@@ -7,7 +7,7 @@ model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("test2.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -197,9 +197,14 @@ while True:
                 #    value=[0, 0, 0]
                 #)
 
+            else:
+                annotated_frame = results[0].plot()
+                #out.write(annotated_frame)
+
         else:
+          # YOLOでフレーム全体サイズのままポーズ推定を実行
+          results = model(small_frame)
           annotated_frame = results[0].plot()
-          # フレームを保存
           #out.write(annotated_frame)
 
         #else:
