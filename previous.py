@@ -7,7 +7,7 @@ model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture("short.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("test.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -142,6 +142,7 @@ while True:
 
     try:
         if current_bbox is not None:
+
             # バウンディングボックスの中心座標を計算
             center_x = int((current_bbox[0] + current_bbox[2]) / 2)
             center_y = int((current_bbox[1] + current_bbox[3]) / 2)
@@ -172,9 +173,8 @@ while True:
                     # 最も信頼度の高い人物のみを選択
                     results[0].boxes = results[0].boxes[best_person_idx:best_person_idx+1]
                     results[0].keypoints = results[0].keypoints[best_person_idx:best_person_idx+1]
-                    annotated_frame = results[0].plot()
 
-                # 検出されたバウンディングボックスを座標系に変換
+                # 検出されたバウンディングボックスをcurrent_bboxに設定
                 detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
                 current_bbox = [
                     detected_bbox[0] + roi_x1,
@@ -185,6 +185,8 @@ while True:
                 
                 # 検出結果を描画
                 annotated_frame = results[0].plot()
+                # フレームを保存
+                #out.write(annotated_frame)
 
                 # ROI以外を黒く塗りつぶす
                 #annotated_frame = cv2.copyMakeBorder(
@@ -195,7 +197,10 @@ while True:
                 #    value=[0, 0, 0]
                 #)
 
-            annotated_frame = results[0].plot()
+        else:
+          annotated_frame = results[0].plot()
+          # フレームを保存
+          #out.write(annotated_frame)
 
         #else:
             # 最初のフレームで検出に失敗した場合はフレーム全体で検出
