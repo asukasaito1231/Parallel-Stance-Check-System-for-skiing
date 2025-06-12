@@ -157,8 +157,11 @@ while True:
             # ROI領域を切り出し
             roi = small_frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
-            # ROIを元のサイズに拡大
-            # roi = cv2.resize(roi, (width, height))
+            # トリミングしたフレームを元のサイズに拡大
+            roi = cv2.resize(roi, (width, height))
+            
+            # フレームサイズを縮小
+            #small_roi = cv2.resize(roi, (int(width * resize_scale), int(height * resize_scale)))
 
             # ROI領域でYOLOを実行
             results = model(roi)
