@@ -11,7 +11,6 @@ cap = cv2.VideoCapture("short.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
-
     exit()
 
 # 動画の情報を取得
@@ -31,7 +30,6 @@ while True:
     if not ret:
         break
     frames.append(frame)
-print('x')
 
 # フレームを逆順に保存
 for frame in reversed(frames):
@@ -68,7 +66,6 @@ fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-# out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
 out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
 
 # 最初のフレームで検出された人物の位置を保存
@@ -82,10 +79,6 @@ ROI_PADDING = 160
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
-
-# フレームの高さと幅を取得
-height, width, _ = first_frame.shape
-
 if ret:
     try:
         # フレームサイズを縮小
@@ -144,9 +137,6 @@ while True:
     # トリミングしたフレームを元のサイズに拡大
     frame = cv2.resize(frame, (width, height))
 
-    # フレームサイズを縮小
-    small_frame = cv2.resize(frame, (int(width * resize_scale), int(height * resize_scale)))
-
     try:
         if current_bbox is not None:
 
@@ -163,7 +153,6 @@ while True:
             # ROI領域を切り出し
             roi = frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
-            # ROIを元のサイズに拡大
             #roi = cv2.resize(roi, (width, height))
 
             # ROI領域でYOLOを実行
@@ -190,63 +179,27 @@ while True:
                     detected_bbox[3] + roi_y1
                 ]
 
-                # 検出結果をROI領域に描画
+                # 検出結果をROI領域に描画し、元のフレームに合成
                 annotated_roi = results[0].plot()
-                
-                # 元サイズのコピーを作成→roiサイズだとまた別のエリアが拡大
-                annotated_frame = frame.copy()
-                
-                # ROI領域に検出結果を描画した画像を配置
-                annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2] = annotated_roi
-
-                # トリミングしたフレームを元のサイズに拡大
-                annotated_frame = cv2.resize(annotated_frame, (width, height))
-
-                #annotated_frame = results[0].plot()
-
-                # フレームを保存
-                out.write(annotated_frame)
-
-                # ROI以外を黒く塗りつぶす
-                #annotated_frame = cv2.copyMakeBorder(
-                #    annotated_frame,
-                #    roi_y1, height - roi_y2,
-                #    roi_x1, width - roi_x2,
-                #    cv2.BORDER_CONSTANT,
-                #    value=[0, 0, 0]
-                #)
+                frame[roi_y1:roi_y2, roi_x1:roi_x2] = annotated_roi
+                annotated_frame = frame
 
             else:
-                print('b')
                 annotated_frame = results[0].plot()
-                #out.write(annotated_frame)
-                out.write(annotated_frame)
 
         else:
-          print('c')
           # YOLOでフレーム全体サイズのままポーズ推定を実行
-          results = model(small_frame)
+          results = model(frame)
           annotated_frame = results[0].plot()
-          out.write(annotated_frame)
-
-        #else:
-            # 最初のフレームで検出に失敗した場合はフレーム全体で検出
-            #results = model(small_frame)
-            #if len(results[0].boxes) > 0:
-            #    current_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-            #annotated_frame = results[0].plot()
 
     except Exception as e:
-        print(f"エラーが発生しました: {e}")
-        print('d')
-        results = model(small_frame)
+        results = model(frame)
         annotated_frame = results[0].plot()
-        out.write(annotated_frame)
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
 
-    # out.write(annotated_frame)
+    out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
@@ -259,4 +212,3 @@ while True:
 # リソースを解放
 cap.release()
 out.release()
-# cv2.destroyAllWindow()
