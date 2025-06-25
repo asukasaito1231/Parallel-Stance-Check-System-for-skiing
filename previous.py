@@ -1,13 +1,14 @@
 import cv2
 from ultralytics import YOLO
 import numpy as np
+import math
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture("short.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture("btest.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -40,7 +41,7 @@ cap.release()
 out.release()
 
 # 逆再生動画で動画キャプチャを初期化
-cap = cv2.VideoCapture("reversed.mp4")
+cap = cv2.VideoCapture("btest.mp4")
 
 if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
@@ -76,6 +77,7 @@ first_person_keypoints = None
 current_bbox = None
 # 検出領域の拡張範囲（ピクセル）
 ROI_PADDING = 160
+#aspect=1.2
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
@@ -103,6 +105,55 @@ if ret:
 
 # 動画の最初に戻る
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+# 足の平行判定関数（YOLO用）
+def check_feet_parallel_yolo(keypoints, threshold_angle=0):
+    """
+    YOLOのキーポイントを使用して足が平行になっているかを判定する関数
+    Args:
+        keypoints: YOLOのキーポイント配列 (shape: [17, 3] - x, y, confidence)
+        threshold_angle: 平行とみなす角度の閾値（度）
+    Returns:
+        bool: 足が平行ならTrue、平行でなければFalse
+    """
+    # YOLOのキーポイントインデックス
+    # 右膝: 12, 右足首: 14
+    # 左膝: 11, 左足首: 13
+    
+    try:
+        # キーポイントの信頼度をチェック
+        right_knee_conf = keypoints[12][2]
+        right_ankle_conf = keypoints[14][2]
+        left_knee_conf = keypoints[11][2]
+        left_ankle_conf = keypoints[13][2]
+        
+        # 信頼度が低い場合は平行とみなす
+        if right_knee_conf < 0.5 or right_ankle_conf < 0.5 or left_knee_conf < 0.5 or left_ankle_conf < 0.5:
+            return True
+        
+        # 右足のベクトル（膝から足首）
+        right_knee = keypoints[12][:2]  # x, y座標のみ取得
+        right_ankle = keypoints[14][:2]
+        right_foot_vector = np.array([right_ankle[0] - right_knee[0], right_ankle[1] - right_knee[1]])
+        
+        # 左足のベクトル（膝から足首）
+        left_knee = keypoints[11][:2]
+        left_ankle = keypoints[13][:2]
+        left_foot_vector = np.array([left_ankle[0] - left_knee[0], left_ankle[1] - left_knee[1]])
+        
+        # ベクトルの角度を計算
+        right_angle = math.degrees(math.atan2(right_foot_vector[1], right_foot_vector[0]))
+        left_angle = math.degrees(math.atan2(left_foot_vector[1], left_foot_vector[0]))
+        
+        # 角度の差を計算（絶対値）
+        angle_diff = abs(right_angle - left_angle)
+        
+        # 角度の差が閾値以下なら平行とみなす
+        return angle_diff <= threshold_angle
+        
+    except (IndexError, AttributeError):
+        # ランドマークが不足している場合は平行とみなす
+        return True
 
 while True:
     ret, frame = cap.read()
@@ -179,11 +230,20 @@ while True:
                     detected_bbox[3] + roi_y1
                 ]
 
-                # 検出結果をROI領域に描画し、元のフレームに合成
-                annotated_roi = results[0].plot()
-                frame[roi_y1:roi_y2, roi_x1:roi_x2] = annotated_roi
-                annotated_frame = frame
+                # キーポイントを取得して足の平行判定を実行
+                keypoints = results[0].keypoints[0].data.cpu().numpy()
+                is_feet_parallel = check_feet_parallel_yolo(keypoints)
 
+                if is_feet_parallel:
+                    print('a')
+                    # 検出結果をROI領域に描画し、元のフレームに合成
+                    annotated_roi = results[0].plot()
+                    frame[roi_y1:roi_y2, roi_x1:roi_x2] = annotated_roi
+                    annotated_frame = frame
+                    
+                else:
+                    # 足が平行でない場合は青い画像を表示
+                    annotated_frame = np.full((height, width, 3), (255, 0, 0), dtype=np.uint8)  # BGR形式で青
             else:
                 annotated_frame = results[0].plot()
 
@@ -199,7 +259,7 @@ while True:
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
 
-    out.write(annotated_frame)
+    #out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
