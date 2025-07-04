@@ -154,15 +154,15 @@ while True:
 
             # 中心座標のうち、y座標(上下方向)のみ少し上に移動
             #center_x=center_x-5
-            center_y=center_y-5
+            #center_y=center_y-5
 
             # current_bboxの幅と高さを計算
             bbox_width = current_bbox[2] - current_bbox[0]
             bbox_height = current_bbox[3] - current_bbox[1]
 
             #多少余白を持たせることで確実にターゲットを検出 
-            x_margin=25
-            y_margin=25
+            x_margin=60
+            y_margin=20
 
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
