@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt
 import numpy as np
+
 # 検出結果の描画
 def plot_world_landmarks(
     plt,
@@ -81,6 +82,7 @@ def plot_world_landmarks(
     ax.plot(left_body_side_x, left_body_side_y, left_body_side_z)
     ax.plot(shoulder_x, shoulder_y, shoulder_z)
     ax.plot(waist_x, waist_y, waist_z)
+
 def main():
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -101,6 +103,9 @@ def main():
         ax = fig.add_subplot(111, projection='3d')
         fig.subplots_adjust(left=0.0, right=1, bottom=0, top=1)
         for marks in pose_landmarker_result.pose_world_landmarks:
+            # すべての骨格座標をターミナルに表示
+            for i, landmark in enumerate(marks):
+                print(f"Landmark {i}: x={landmark.x}, y={landmark.y}, z={landmark.z}, visibility={landmark.visibility}")
             plot_world_landmarks(
                 plt,
                 ax,
