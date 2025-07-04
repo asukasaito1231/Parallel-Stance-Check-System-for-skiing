@@ -7,7 +7,7 @@ model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture(r"E:\ski\data\short1.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture(r"E:\ski\data\short.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -22,7 +22,7 @@ total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 # 逆再生動画を保存するための設定
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter('reversed.mp4', fourcc, fps, (width, height))
+out = cv2.VideoWriter(r"E:\ski\data\reversed.mp4", fourcc, fps, (width, height))
 
 # フレームを配列に保存
 frames = []
@@ -42,7 +42,7 @@ cap.release()
 out.release()
 
 # 逆再生動画で動画キャプチャを初期化
-cap = cv2.VideoCapture("reversed.mp4")
+cap = cv2.VideoCapture(r"E:\ski\data\reversed.mp4")
 
 if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
@@ -100,9 +100,8 @@ if ret:
             first_person_keypoints = first_results[0].keypoints[0].data.cpu().numpy()
             # 現在のバウンディングボックスを設定
             current_bbox = first_person_bbox
-            print(f"最初のフレームで人物を検出しました")
-            print(f"バウンディングボックス座標: {first_person_bbox}")
-            print(f"キーポイント座標: {first_person_keypoints}")
+            print("*****************************detect success")
+
         else:
             print("最初のフレームで人物が検出されませんでした")
     except Exception as e:
@@ -110,6 +109,8 @@ if ret:
 
 # 動画の最初に戻る
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+i=0
 
 while True:
     ret, frame = cap.read()
@@ -151,14 +152,23 @@ while True:
             center_x = int((current_bbox[0] + current_bbox[2]) / 2)
             center_y = int((current_bbox[1] + current_bbox[3]) / 2)
 
-            # ROIの範囲を計算
-            roi_x1 = max(0, center_x - ROI_PADDING)
-            roi_y1 = max(0, center_y - ROI_PADDING)
-            roi_x2 = min(width, center_x + ROI_PADDING)
-            roi_y2 = min(height, center_y + ROI_PADDING)
+            #center_x=center_x-5
+            center_y=center_y-5
 
-            # ROI領域を切り出し
-            roi = frame[roi_y1:roi_y2, roi_x1:roi_x2]
+            # current_bboxの幅と高さを計算
+            bbox_width = current_bbox[2] - current_bbox[0]
+            bbox_height = current_bbox[3] - current_bbox[1]
+
+            x_margin=25
+            y_margin=25
+
+            # ROIの範囲をcenter_x, center_yを中心にbboxと同じ大きさで設定
+            roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
+            roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
+            roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
+            roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
+
+            roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
             # ROIを元のサイズに拡大
             #roi = cv2.resize(roi, (width, height))
