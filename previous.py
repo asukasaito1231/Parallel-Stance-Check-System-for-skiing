@@ -3,7 +3,7 @@ from ultralytics import YOLO
 import numpy as np
 
 # YOLOモデルの読み込み
-model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
+model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画キャプチャの初期化
 
@@ -31,11 +31,12 @@ while True:
     if not ret:
         break
     frames.append(frame)
-print('x')
 
 # フレームを逆順に保存
 for frame in reversed(frames):
     out.write(frame)
+
+print('逆再生処理完了')
 
 # リソースを解放
 cap.release()
@@ -48,28 +49,15 @@ if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
     exit()
 
-# ウィンドウサイズを変更するscale
-resize_scale = 1
-# 拡大倍率
-scale = 1
-
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
 
-# トラックバーのコールバック関数
-def nothing(x):
-    pass
-
-# トラックバーの作成
-cv2.createTrackbar('Scale', 'Pose Detection', 1, 5, nothing)
-
 # 動画保存の設定
 fps = cap.get(cv2.CAP_PROP_FPS)
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) * resize_scale)
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) * resize_scale)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 # out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
-out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
 
 # 最初のフレームで検出された人物の位置を保存
 first_person_bbox = None
@@ -77,8 +65,6 @@ first_person_bbox = None
 first_person_keypoints = None
 # 現在のバウンディングボックスを保存
 current_bbox = None
-# 検出領域の拡張範囲（ピクセル）
-ROI_PADDING = 160
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
@@ -89,7 +75,7 @@ height, width, _ = first_frame.shape
 if ret:
     try:
         # フレームサイズを縮小
-        small_first_frame = cv2.resize(first_frame, (int(width * resize_scale), int(height * resize_scale)))
+        small_first_frame = cv2.resize(first_frame, (int(width), int(height)))
         # YOLOでポーズ推定を実行
         first_results = model(small_first_frame)
 
@@ -100,7 +86,7 @@ if ret:
             first_person_keypoints = first_results[0].keypoints[0].data.cpu().numpy()
             # 現在のバウンディングボックスを設定
             current_bbox = first_person_bbox
-            print("*****************************detect success")
+            print("最初のフレームでの人物発見成功")
 
         else:
             print("最初のフレームで人物が検出されませんでした")
@@ -110,40 +96,15 @@ if ret:
 # 動画の最初に戻る
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
-i=0
-
+#フレーム読み込み開始
 while True:
     ret, frame = cap.read()
     if not ret:
         print("動画の再生が終了しました。")
         break
 
-    # トラックバーから現在のスケール値を取得
-    scale = cv2.getTrackbarPos('Scale', 'Pose Detection')
-
     # フレームの高さと幅を取得
     height, width, _ = frame.shape
-
-    # 拡大処理
-    # 縮小処理を防ぐ
-    if int(scale) < 1:
-        scale = 1
-
-    # トリミング領域の幅と高さを計算
-    roi_width = width / int(scale)
-    roi_height = height / int(scale)
-
-    # トリミング開始位置と終了位置を決める
-    sabun_w1 = int((width - roi_width)/2)
-    sabun_w2 = int((width + roi_width)/2)
-    sabun_h1 = int((height - roi_height)/2)
-    sabun_h2 = int((height + roi_height)/2)
-
-    # フレームの中心領域をトリミング
-    frame = frame[sabun_h1:sabun_h2, sabun_w1:sabun_w2]
-
-    # トリミングしたフレームを元のサイズに拡大
-    frame = cv2.resize(frame, (width, height))
 
     try:
         if current_bbox is not None:
@@ -152,17 +113,13 @@ while True:
             center_x = int((current_bbox[0] + current_bbox[2]) / 2)
             center_y = int((current_bbox[1] + current_bbox[3]) / 2)
 
-            # 中心座標のうち、y座標(上下方向)のみ少し上に移動
-            #center_x=center_x-5
-            #center_y=center_y-5
-
             # current_bboxの幅と高さを計算
             bbox_width = current_bbox[2] - current_bbox[0]
             bbox_height = current_bbox[3] - current_bbox[1]
 
             #多少余白を持たせることで確実にターゲットを検出 
-            x_margin=60
-            y_margin=20
+            x_margin=bbox_width/2
+            y_margin=bbox_height/5
 
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -178,58 +135,46 @@ while True:
             # ROI領域でYOLOを実行
             results = model(roi)
 
-            if len(results[0].boxes) > 0:
-
                 # 2人以上検出された場合は最も信頼度スコアが高い人物を描画
-                if len(results[0].boxes) > 1:
-                    # 信頼度スコアを取得
-                    confidence_scores = results[0].boxes.conf.cpu().numpy()
-                    # 最も信頼度の高い人物のインデックスを取得
-                    best_person_idx = np.argmax(confidence_scores)
-                    # 最も信頼度の高い人物のみを選択
-                    results[0].boxes = results[0].boxes[best_person_idx:best_person_idx+1]
-                    results[0].keypoints = results[0].keypoints[best_person_idx:best_person_idx+1]
+            if len(results[0].boxes) > 1:
+                # 信頼度スコアを取得
+                confidence_scores = results[0].boxes.conf.cpu().numpy()
+                # 最も信頼度の高い人物のインデックスを取得
+                best_person_idx = np.argmax(confidence_scores)
+                # 最も信頼度の高い人物のみを選択
+                results[0].boxes = results[0].boxes[best_person_idx:best_person_idx+1]
+                results[0].keypoints = results[0].keypoints[best_person_idx:best_person_idx+1]
 
-                # 検出されたバウンディングボックスをcurrent_bboxに設定
-                detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-                current_bbox = [
-                    detected_bbox[0] + roi_x1,
-                    detected_bbox[1] + roi_y1,
-                    detected_bbox[2] + roi_x1,
-                    detected_bbox[3] + roi_y1
-                ]
+            # 検出されたバウンディングボックスをcurrent_bboxに設定
+            detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+            #ROI内での相対座標(0, 0)がROIの左上を元画像での絶対座標に変換(0, 0)が画像の左上
+            current_bbox = [
+                detected_bbox[0]+roi_x1,
+                detected_bbox[1]+roi_y1,
+                detected_bbox[2]+roi_x1,
+                detected_bbox[3]+roi_y1
+            ]
             
-                annotated_frame = results[0].plot()
+            annotated_frame = results[0].plot()
 
-                # ROI以外を黒く塗りつぶす
-                annotated_frame = cv2.copyMakeBorder(
-                     annotated_frame,
-                     roi_y1, height - roi_y2,
-                     roi_x1, width - roi_x2,
-                     cv2.BORDER_CONSTANT,
-                     value=[0, 0, 0]
-                )
+            # ROI以外を黒く塗りつぶす
+            annotated_frame = cv2.copyMakeBorder(
+                annotated_frame,
+                roi_y1, height - roi_y2,
+                roi_x1, width - roi_x2,
+                cv2.BORDER_CONSTANT,
+                value=[0, 0, 0]
+            )
 
-            else:
-                print('b')
-                annotated_frame = results[0].plot()
-
+        # current_bboxがnoneの場合
         else:
-          print('c')
+          print('current_bboxがnoneの場合')
           # YOLOでフレーム全体サイズのままポーズ推定を実行
           results = model(frame)
           annotated_frame = results[0].plot()
 
-        #else:
-            # 最初のフレームで検出に失敗した場合はフレーム全体で検出
-            #results = model(small_frame)
-            #if len(results[0].boxes) > 0:
-            #    current_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-            #annotated_frame = results[0].plot()
-
     except Exception as e:
-        print(f"エラーが発生しました: {e}")
-        print('d')
+        print('try文に突入しなかった')
         results = model(frame)
         annotated_frame = results[0].plot()
 
@@ -242,8 +187,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
-print(width)
-print(height)
 # リソースを解放
 cap.release()
 out.release()
