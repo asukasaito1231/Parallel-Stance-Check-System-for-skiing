@@ -7,7 +7,7 @@ model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture(r"E:\ski\data\short.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture(r"E:\ski\data\expand.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -236,7 +236,7 @@ while True:
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
 
-    out.write(annotated_frame)
+    #out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
