@@ -1,13 +1,28 @@
 import cv2
 from ultralytics import YOLO
 import numpy as np
+import matplotlib.pyplot as plt
+
+def detectionResult(confidence):
+    
+    times = [t for t, s in confidence]
+    scores = [s for t, s in confidence]
+    plt.figure(figsize=(10, 5))
+    plt.plot(times, scores, marker='o', linestyle='-')
+    plt.xlabel('time(second)')
+    plt.ylabel('confidence score')
+    plt.title('Confidence Score per Frame')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('confidence_graph.png')
+    plt.close()
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画キャプチャの初期化
 
-cap = cv2.VideoCapture(r"E:\ski\data\expand.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -96,6 +111,8 @@ if ret:
 # 動画の最初に戻る
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
+confidence=[]
+
 #フレーム読み込み開始
 while True:
     ret, frame = cap.read()
@@ -178,6 +195,19 @@ while True:
         results = model(frame)
         annotated_frame = results[0].plot()
 
+
+    frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+
+    time = frame_number / fps
+
+    if len(results[0].boxes) < 1:
+        score=0
+
+    else:
+        score = float(results[0].boxes.conf[0].cpu().numpy())
+
+    confidence.append((time, score))
+
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
 
@@ -187,7 +217,7 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
+detectionResult(confidence)
 # リソースを解放
 cap.release()
 out.release()
-# cv2.destroyAllWindow()
