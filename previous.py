@@ -14,15 +14,14 @@ def detectionResult(confidence):
     plt.title('Confidence Score per Frame')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('confidence_graph.png')
+    plt.savefig('perfect-short.png')
     plt.close()
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画キャプチャの初期化
-
-cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture(r"E:\ski\data\short-reversed.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -31,13 +30,14 @@ if not cap.isOpened():
 
 # 動画の情報を取得
 fps = cap.get(cv2.CAP_PROP_FPS)
+'''
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+out = cv2.VideoWriter(r"E:\ski\data\previous.mp4", fourcc, fps, (width, height))
 
 # 逆再生動画を保存するための設定
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter(r"E:\ski\data\reversed.mp4", fourcc, fps, (width, height))
+out = cv2.VideoWriter(r"E:\\ski\\data\\reversed.mp4", fourcc, fps, (width, height))
 
 # フレームを配列に保存
 frames = []
@@ -58,21 +58,14 @@ cap.release()
 out.release()
 
 # 逆再生動画で動画キャプチャを初期化
-cap = cv2.VideoCapture(r"E:\ski\data\reversed.mp4")
+cap = cv2.VideoCapture(r"E:\\ski\\data\\reversed.mp4")
 
 if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
     exit()
-
+'''
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
-
-# 動画保存の設定
-fps = cap.get(cv2.CAP_PROP_FPS)
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-# out = cv2.VideoWriter('previous.mp4', fourcc, fps, (width, height))
 
 # 最初のフレームで検出された人物の位置を保存
 first_person_bbox = None
@@ -89,10 +82,8 @@ height, width, _ = first_frame.shape
 
 if ret:
     try:
-        # フレームサイズを縮小
-        small_first_frame = cv2.resize(first_frame, (int(width), int(height)))
         # YOLOでポーズ推定を実行
-        first_results = model(small_first_frame)
+        first_results = model(first_frame)
 
         if len(first_results[0].boxes) > 0:
             # バウンディングボックスの座標を保存
@@ -120,9 +111,6 @@ while True:
         print("動画の再生が終了しました。")
         break
 
-    # フレームの高さと幅を取得
-    height, width, _ = frame.shape
-
     try:
         if current_bbox is not None:
 
@@ -136,7 +124,7 @@ while True:
 
             #多少余白を持たせることで確実にターゲットを検出 
             x_margin=bbox_width/2
-            y_margin=bbox_height/5
+            y_margin=bbox_height/6
 
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -152,25 +140,19 @@ while True:
             # ROI領域でYOLOを実行
             results = model(roi)
 
-                # 2人以上検出された場合は最も信頼度スコアが高い人物を描画
-            if len(results[0].boxes) > 1:
-                # 信頼度スコアを取得
-                confidence_scores = results[0].boxes.conf.cpu().numpy()
-                # 最も信頼度の高い人物のインデックスを取得
-                best_person_idx = np.argmax(confidence_scores)
-                # 最も信頼度の高い人物のみを選択
-                results[0].boxes = results[0].boxes[best_person_idx:best_person_idx+1]
-                results[0].keypoints = results[0].keypoints[best_person_idx:best_person_idx+1]
-
             # 検出されたバウンディングボックスをcurrent_bboxに設定
-            detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-            #ROI内での相対座標(0, 0)がROIの左上を元画像での絶対座標に変換(0, 0)が画像の左上
-            current_bbox = [
-                detected_bbox[0]+roi_x1,
-                detected_bbox[1]+roi_y1,
-                detected_bbox[2]+roi_x1,
-                detected_bbox[3]+roi_y1
-            ]
+            if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
+                curret_bbox = current_bbox
+            
+            else:# 検出されたバウンディングボックスをcurrent_bboxに設定
+                detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+                #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
+                current_bbox = [
+                    detected_bbox[0]+roi_x1,
+                    detected_bbox[1]+roi_y1,
+                    detected_bbox[2]+roi_x1,
+                    detected_bbox[3]+roi_y1
+                    ]
             
             annotated_frame = results[0].plot()
 
@@ -200,7 +182,7 @@ while True:
 
     time = frame_number / fps
 
-    if len(results[0].boxes) < 1:
+    if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
         score=0
 
     else:
@@ -220,4 +202,4 @@ while True:
 detectionResult(confidence)
 # リソースを解放
 cap.release()
-out.release()
+#out.release()
