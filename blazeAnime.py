@@ -4,6 +4,39 @@ import matplotlib.pyplot as plt
 import numpy as np
 import io
 from PIL import Image
+
+# 全身のvisibility平均スコアを計算する関数
+def calculate_full_body_visibility(landmarks):
+    # 全身のランドマークインデックス（0-32の全て）
+    full_body_indices = list(range(33))  # 0から32まで
+    
+    visibility_scores = []
+    for index in full_body_indices:
+        if index < len(landmarks):
+            visibility_scores.append(landmarks[index].visibility)
+    
+    # 平均visibilityを計算
+    if visibility_scores:
+        return np.mean(visibility_scores)
+    else:
+        return 0.0
+
+# 信頼度スコアのグラフを作成する関数
+def plot_confidence_graph(confidence_data, output_filename='blaze_confidence.png'):
+    times = [t for t, s in confidence_data]
+    scores = [s for t, s in confidence_data]
+    
+    plt.figure(figsize=(10, 5))
+    plt.plot(times, scores, marker='o', linestyle='-')
+    plt.xlabel('time(second)')
+    plt.ylabel('full body visibility score')
+    plt.title('Full Body Visibility Score per Frame (BlazePose)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(output_filename)
+    plt.close()
+    print(f'信頼度スコアグラフを保存しました: {output_filename}')
+
 # 検出結果の描画
 def plot_world_landmarks(
     plt,
@@ -83,22 +116,31 @@ def plot_world_landmarks(
     ax.plot(left_body_side_x, left_body_side_y, left_body_side_z)
     ax.plot(shoulder_x, shoulder_y, shoulder_z)
     ax.plot(waist_x, waist_y, waist_z)
+
 def main():
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
     PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
     VisionRunningMode = mp.tasks.vision.RunningMode
     options = PoseLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path='pose_landmarker_heavy.task'),
+        base_options=BaseOptions(model_asset_path='pose_landmarker_full.task'),
         running_mode=VisionRunningMode.IMAGE,
         num_poses=1)
     
     # 動画ファイルの読み込み
-    cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")
+    cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    out = cv2.VideoWriter(r'E:\ski\data\3d-output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    
+    # 3D骨格動画の出力設定
+    out_3d = cv2.VideoWriter(r'E:\ski\data\3d-output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    
+    # 骨格検出結果を描画した動画の出力設定
+    out_pose = cv2.VideoWriter(r'E:\ski\data\pose-detection.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+
+    # 信頼度スコアを保存するリスト
+    confidence_scores = []
 
     with PoseLandmarker.create_from_options(options) as landmarker:
         
@@ -106,10 +148,62 @@ def main():
             ret, frame = cap.read()
             if not ret:
                 break
+                
             # BGR→RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
             pose_landmarker_result = landmarker.detect(mp_image)
+
+            # 現在のフレーム番号と時間を取得
+            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            current_time = frame_number / fps
+
+            # 全身のvisibility平均スコアを計算
+            full_body_score = 0.0
+            if pose_landmarker_result.pose_world_landmarks:
+                for marks in pose_landmarker_result.pose_world_landmarks:
+                    full_body_score = calculate_full_body_visibility(marks)
+                    break  # 最初の人物のみ処理
+            
+            # 信頼度スコアを保存
+            confidence_scores.append((current_time, full_body_score))
+
+            # 骨格検出結果を動画に描画
+            annotated_frame = frame.copy()
+            if pose_landmarker_result.pose_landmarks:
+                for pose_landmarks in pose_landmarker_result.pose_landmarks:
+                    # 骨格を描画（新しいAPI用）
+                    for i, landmark in enumerate(pose_landmarks):
+                        # キーポイントを描画
+                        x = int(landmark.x * width)
+                        y = int(landmark.y * height)
+                        cv2.circle(annotated_frame, (x, y), 3, (0, 255, 0), -1)
+                    
+                    # 骨格の接続線を描画（主要な接続のみ）
+                    connections = [
+                        (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),  # 肩と腕
+                        (11, 23), (12, 24), (23, 24),  # 肩と腰
+                        (23, 25), (25, 27), (27, 29), (29, 31),  # 右足
+                        (24, 26), (26, 28), (28, 30), (30, 32),  # 左足
+                        (15, 17), (15, 19), (15, 21), (17, 19), (19, 21),  # 右手
+                        (16, 18), (16, 20), (16, 22), (18, 20), (20, 22)   # 左手
+                    ]
+                    
+                    for connection in connections:
+                        start_idx, end_idx = connection
+                        if start_idx < len(pose_landmarks) and end_idx < len(pose_landmarks):
+                            start_point = pose_landmarks[start_idx]
+                            end_point = pose_landmarks[end_idx]
+                            
+                            start_x = int(start_point.x * width)
+                            start_y = int(start_point.y * height)
+                            end_x = int(end_point.x * width)
+                            end_y = int(end_point.y * height)
+                            
+                            cv2.line(annotated_frame, (start_x, start_y), (end_x, end_y), (255, 0, 0), 2)
+            
+            # 骨格検出動画を保存
+            out_pose.write(annotated_frame)
 
             # 3D骨格描画
             fig = plt.figure(figsize=(width/100, height/100), dpi=100)
@@ -136,11 +230,16 @@ def main():
                 img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
             # サイズ調整（念のため）
             #img_np = cv2.resize(img_np, (width, height))
-            out.write(img_np)
+            out_3d.write(img_np)
             
     cap.release()
-    out.release()
+    out_3d.release()
+    out_pose.release()
     print('3D骨格動画を保存しました: 3d-output.mp4')
+    print('骨格検出動画を保存しました: pose-detection.mp4')
+    
+    # 信頼度スコアのグラフを作成
+    plot_confidence_graph(confidence_scores, 'blaze_confidence.png')
     
 if __name__ == '__main__':
     main()
