@@ -14,14 +14,14 @@ def detectionResult(confidence):
     plt.title('Confidence Score per Frame')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('perfect-short.png')
+    plt.savefig('perfect-clip.png')
     plt.close()
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画キャプチャの初期化
-cap = cv2.VideoCapture(r"E:\ski\data\short-reversed.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -199,7 +199,38 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
+'''
+# --- 追加統計処理 ---
+total_frames = len(confidence)
+zero_score_frames = [score for t, score in confidence if score == 0.0]
+num_zero_score_frames = len(zero_score_frames)
+zero_score_percent = (num_zero_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
+
+# 信頼度スコア0が1秒以上続いた区間の個数をカウント
+zero_streaks = 0
+streak_length = 0
+for t, score in confidence:
+    if score == 0.0:
+        streak_length += 1
+    else:
+        if streak_length >= fps:  # 1秒以上
+            zero_streaks += 1
+        streak_length = 0
+
+# 最後が0で終わる場合
+if streak_length >= fps:
+    zero_streaks += 1
+
+# 信頼度スコアが0より大きいフレームの平均信頼度スコア
+positive_scores = [score for t, score in confidence if score > 0.0]
+avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
+
+print(f'総フレーム数: {total_frames}')
+print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
+print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
+print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
+'''
+
 detectionResult(confidence)
-# リソースを解放
 cap.release()
 #out.release()
