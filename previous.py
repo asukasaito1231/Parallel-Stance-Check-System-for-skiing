@@ -3,6 +3,7 @@ from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
 
+# bbox検出結果表示関数
 def detectionResult(confidence):
     
     times = [t for t, s in confidence]
@@ -21,7 +22,7 @@ def detectionResult(confidence):
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画キャプチャの初期化
-cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")  # 動画ファイルを指定
+cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")  # 動画ファイルを指定
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -86,18 +87,24 @@ if ret:
         first_results = model(first_frame)
 
         if len(first_results[0].boxes) > 0:
+
             # バウンディングボックスの座標を保存
             first_person_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
+
             # キーポイントの座標を保存
             first_person_keypoints = first_results[0].keypoints[0].data.cpu().numpy()
+
             # 現在のバウンディングボックスを設定
             current_bbox = first_person_bbox
+
             print("最初のフレームでの人物発見成功")
 
         else:
             print("最初のフレームで人物が検出されませんでした")
+            exit()
     except Exception as e:
         print(f"エラーが発生しました: {e}")
+        exit()
 
 # 動画の最初に戻る
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -111,72 +118,53 @@ while True:
         print("動画の再生が終了しました。")
         break
 
-    try:
-        if current_bbox is not None:
+    # バウンディングボックスの中心座標を計算
+    center_x = int((current_bbox[0] + current_bbox[2]) / 2)
+    center_y = int((current_bbox[1] + current_bbox[3]) / 2)
 
-            # バウンディングボックスの中心座標を計算
-            center_x = int((current_bbox[0] + current_bbox[2]) / 2)
-            center_y = int((current_bbox[1] + current_bbox[3]) / 2)
+    # current_bboxの幅と高さを計算
+    bbox_width = current_bbox[2] - current_bbox[0]
+    bbox_height = current_bbox[3] - current_bbox[1]
 
-            # current_bboxの幅と高さを計算
-            bbox_width = current_bbox[2] - current_bbox[0]
-            bbox_height = current_bbox[3] - current_bbox[1]
+    #多少余白を持たせることで確実にターゲットを検出 
+    x_margin=bbox_width/2
+    y_margin=bbox_height/6
 
-            #多少余白を持たせることで確実にターゲットを検出 
-            x_margin=bbox_width/2
-            y_margin=bbox_height/6
+    # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
+    roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
+    roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
+    roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
+    roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
 
-            # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
-            roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
-            roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
-            roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
-            roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
+    roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
-            roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
+    # ROI領域でYOLOを実行
+    results = model(roi)
 
-            # ROIを元のサイズに拡大
-            #roi = cv2.resize(roi, (width, height))
-
-            # ROI領域でYOLOを実行
-            results = model(roi)
-
-            # 検出されたバウンディングボックスをcurrent_bboxに設定
-            if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
-                curret_bbox = current_bbox
+    # 2人以上や検出しなかった場合はcurrent_bboxの位置はそのまま
+    if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
+        curret_bbox = current_bbox
             
-            else:# 検出されたバウンディングボックスをcurrent_bboxに設定
-                detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-                #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
-                current_bbox = [
-                    detected_bbox[0]+roi_x1,
-                    detected_bbox[1]+roi_y1,
-                    detected_bbox[2]+roi_x1,
-                    detected_bbox[3]+roi_y1
-                    ]
+    else:# 検出されたバウンディングボックスをcurrent_bboxに設定
+        detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+        #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
+        current_bbox = [
+            detected_bbox[0]+roi_x1,
+            detected_bbox[1]+roi_y1,
+            detected_bbox[2]+roi_x1,
+            detected_bbox[3]+roi_y1
+            ]
             
-            annotated_frame = results[0].plot()
+    annotated_frame = results[0].plot()
 
-            # ROI以外を黒く塗りつぶす
-            annotated_frame = cv2.copyMakeBorder(
-                annotated_frame,
-                roi_y1, height - roi_y2,
-                roi_x1, width - roi_x2,
-                cv2.BORDER_CONSTANT,
-                value=[0, 0, 0]
-            )
-
-        # current_bboxがnoneの場合
-        else:
-          print('current_bboxがnoneの場合')
-          # YOLOでフレーム全体サイズのままポーズ推定を実行
-          results = model(frame)
-          annotated_frame = results[0].plot()
-
-    except Exception as e:
-        print('try文に突入しなかった')
-        results = model(frame)
-        annotated_frame = results[0].plot()
-
+    # ROI以外を黒く塗りつぶす
+    annotated_frame = cv2.copyMakeBorder(
+            annotated_frame,
+            roi_y1, height - roi_y2,
+            roi_x1, width - roi_x2,
+            cv2.BORDER_CONSTANT,
+            value=[0, 0, 0]
+        )
 
     frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
 
@@ -199,14 +187,13 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
-'''
 # --- 追加統計処理 ---
 total_frames = len(confidence)
 zero_score_frames = [score for t, score in confidence if score == 0.0]
 num_zero_score_frames = len(zero_score_frames)
 zero_score_percent = (num_zero_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
 
-# 信頼度スコア0が1秒以上続いた区間の個数をカウント
+# 信頼度スコア0(bbox検出無し)が1秒以上続いた区間の個数をカウント
 zero_streaks = 0
 streak_length = 0
 for t, score in confidence:
@@ -229,7 +216,6 @@ print(f'総フレーム数: {total_frames}')
 print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
 print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
 print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-'''
 
 detectionResult(confidence)
 cap.release()
