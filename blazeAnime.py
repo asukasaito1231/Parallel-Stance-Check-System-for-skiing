@@ -117,6 +117,15 @@ def plot_world_landmarks(
     ax.plot(shoulder_x, shoulder_y, shoulder_z)
     ax.plot(waist_x, waist_y, waist_z)
 
+def get_bbox_from_landmarks(landmarks, width, height):
+    xs = [lm.x for lm in landmarks]
+    ys = [lm.y for lm in landmarks]
+    min_x = max(0, int(min(xs) * width))
+    max_x = min(width, int(max(xs) * width))
+    min_y = max(0, int(min(ys) * height))
+    max_y = min(height, int(max(ys) * height))
+    return [min_x, min_y, max_x, max_y]
+
 def main():
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -128,147 +137,187 @@ def main():
         num_poses=1)
     
     # 動画ファイルの読み込み
-    cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")
+    cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    
-    # 3D骨格動画の出力設定
-    #out_3d = cv2.VideoWriter(r'E:\ski\data\3d-output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
-    
-    # 骨格検出結果を描画した動画の出力設定
-    #out_pose = cv2.VideoWriter(r'E:\ski\data\pose-detection.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+
+    '''
+    # --- 逆再生動画の作成 ---
+    frames = []
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frames.append(frame)
+    cap.release()
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out_rev = cv2.VideoWriter(r"E:\ski\data\reversed.mp4", fourcc, fps, (width, height))
+    for frame in reversed(frames):
+        out_rev.write(frame)
+    out_rev.release()
+    print('逆再生処理完了')
+    # 逆再生動画で動画キャプチャを初期化
+    cap = cv2.VideoCapture(r"E:\ski\data\reversed.mp4")
+    '''
 
     # 信頼度スコアを保存するリスト
     confidence_scores = []
 
+    # ウィンドウ作成
+    cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
+
+    # 最初のフレームで検出された人物のバウンディングボックスを保存
+    first_person_bbox = None
+    current_bbox = None
+
     with PoseLandmarker.create_from_options(options) as landmarker:
-        
+        # 最初のフレームで人物検出
+        ret, first_frame = cap.read()
+        if not ret:
+            print('動画が読み込めません')
+            return
+        rgb_first = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(mp.ImageFormat.SRGB, rgb_first)
+        pose_landmarker_result = landmarker.detect(mp_image)
+        if pose_landmarker_result.pose_landmarks:
+            first_person_bbox = get_bbox_from_landmarks(pose_landmarker_result.pose_landmarks[0], width, height)
+            current_bbox = first_person_bbox
+            print('最初のフレームで人物検出成功')
+        else:
+            print('最初のフレームで人物が検出されませんでした')
+            current_bbox = None
+            exit()
+
+        # 動画の最初に戻る
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        frame_idx = 0
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-                
-            # BGR→RGB
+            frame_idx += 1
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+            roi_frame = frame
+            roi_rgb = rgb_frame
+            roi_coords = None
+            # current_bboxがある場合はROIで検出
+            if current_bbox is not None:
+                cx = int((current_bbox[0] + current_bbox[2]) / 2)
+                cy = int((current_bbox[1] + current_bbox[3]) / 2)
+                bbox_w = current_bbox[2] - current_bbox[0]
+                bbox_h = current_bbox[3] - current_bbox[1]
+                x_margin = bbox_w
+                y_margin = bbox_h
+                roi_x1 = max(0, cx - bbox_w // 2 - x_margin)
+                roi_y1 = max(0, cy - bbox_h // 2 - y_margin)
+                roi_x2 = min(width, cx + bbox_w // 2 + x_margin)
+                roi_y2 = min(height, cy + bbox_h // 2 + y_margin)
+                roi_frame = frame[roi_y1:roi_y2, roi_x1:roi_x2]
+                roi_rgb = rgb_frame[roi_y1:roi_y2, roi_x1:roi_x2]
+                roi_coords = (roi_x1, roi_y1, roi_x2, roi_y2)
+                # ここでshapeチェック
+                if roi_rgb.size == 0:
+                    continue
+                roi_rgb = np.ascontiguousarray(roi_rgb)
+            mp_image = mp.Image(mp.ImageFormat.SRGB, roi_rgb)
             pose_landmarker_result = landmarker.detect(mp_image)
+            # バウンディングボックス更新
+            if pose_landmarker_result.pose_landmarks:
+                detected_bbox = get_bbox_from_landmarks(pose_landmarker_result.pose_landmarks[0], roi_frame.shape[1], roi_frame.shape[0])
+                # ROI→元画像座標に変換
+                if roi_coords:
+                    current_bbox = [
+                        detected_bbox[0] + roi_coords[0],
+                        detected_bbox[1] + roi_coords[1],
+                        detected_bbox[2] + roi_coords[0],
+                        detected_bbox[3] + roi_coords[1]
+                    ]
+                else:
+                    current_bbox = current_bbox
 
-            # 現在のフレーム番号と時間を取得
-            frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-            current_time = frame_number / fps
-
-            # 全身のvisibility平均スコアを計算
+            # 信頼度スコア計算
             full_body_score = 0.0
             if pose_landmarker_result.pose_world_landmarks:
                 for marks in pose_landmarker_result.pose_world_landmarks:
                     full_body_score = calculate_full_body_visibility(marks)
-                    break  # 最初の人物のみ処理
-            
-            # 信頼度スコアを保存
-            confidence_scores.append((current_time, full_body_score))
-
-            # 骨格検出結果を動画に描画
+                    break
+            confidence_scores.append((frame_idx / fps, full_body_score))
+            # 骨格描画（元のannotated_frameに描画）
             annotated_frame = frame.copy()
             if pose_landmarker_result.pose_landmarks:
                 for pose_landmarks in pose_landmarker_result.pose_landmarks:
-                    # 骨格を描画（新しいAPI用）
                     for i, landmark in enumerate(pose_landmarks):
-                        # キーポイントを描画
-                        x = int(landmark.x * width)
-                        y = int(landmark.y * height)
+                        x = int(landmark.x * (roi_frame.shape[1] if roi_coords else width))
+                        y = int(landmark.y * (roi_frame.shape[0] if roi_coords else height))
+                        if roi_coords:
+                            x += roi_coords[0]
+                            y += roi_coords[1]
                         cv2.circle(annotated_frame, (x, y), 3, (0, 255, 0), -1)
-                    
-                    # 骨格の接続線を描画（主要な接続のみ）
                     connections = [
-                        (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),  # 肩と腕
-                        (11, 23), (12, 24), (23, 24),  # 肩と腰
-                        (23, 25), (25, 27), (27, 29), (29, 31),  # 右足
-                        (24, 26), (26, 28), (28, 30), (30, 32),  # 左足
-                        (15, 17), (15, 19), (15, 21), (17, 19), (19, 21),  # 右手
-                        (16, 18), (16, 20), (16, 22), (18, 20), (20, 22)   # 左手
+                        (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),
+                        (11, 23), (12, 24), (23, 24),
+                        (23, 25), (25, 27), (27, 29), (29, 31),
+                        (24, 26), (26, 28), (28, 30), (30, 32),
+                        (15, 17), (15, 19), (15, 21), (17, 19), (19, 21),
+                        (16, 18), (16, 20), (16, 22), (18, 20), (20, 22)
                     ]
-                    
                     for connection in connections:
                         start_idx, end_idx = connection
                         if start_idx < len(pose_landmarks) and end_idx < len(pose_landmarks):
                             start_point = pose_landmarks[start_idx]
                             end_point = pose_landmarks[end_idx]
-                            
-                            start_x = int(start_point.x * width)
-                            start_y = int(start_point.y * height)
-                            end_x = int(end_point.x * width)
-                            end_y = int(end_point.y * height)
-                            
-                            cv2.line(annotated_frame, (start_x, start_y), (end_x, end_y), (255, 0, 0), 2)
-            
-            # 骨格検出動画を保存
-            #out_pose.write(annotated_frame)
-
-            # 3D骨格描画
-            fig = plt.figure(figsize=(width/100, height/100), dpi=100)
-            ax = fig.add_subplot(111, projection='3d')
-            fig.subplots_adjust(left=0.0, right=1, bottom=0, top=1)
-            if pose_landmarker_result.pose_world_landmarks:
-                for marks in pose_landmarker_result.pose_world_landmarks:
-                    plot_world_landmarks(
-                        plt,
-                        ax,
-                        marks,
-                    )
-            #plt.show()  # 表示は省略
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            plt.close(fig)
-            buf.seek(0)
-            img_pil = Image.open(buf)
-            img_np = np.array(img_pil)
-            # PNGはRGBAなのでBGRに変換
-            if img_np.shape[2] == 4:
-                img_np = cv2.cvtColor(img_np, cv2.COLOR_RGBA2BGR)
-            else:
-                img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-            # サイズ調整（念のため）
-            #img_np = cv2.resize(img_np, (width, height))
-            #out_3d.write(img_np)
-            
+                            sx = int(start_point.x * (roi_frame.shape[1] if roi_coords else width))
+                            sy = int(start_point.y * (roi_frame.shape[0] if roi_coords else height))
+                            ex = int(end_point.x * (roi_frame.shape[1] if roi_coords else width))
+                            ey = int(end_point.y * (roi_frame.shape[0] if roi_coords else height))
+                            if roi_coords:
+                                sx += roi_coords[0]
+                                sy += roi_coords[1]
+                                ex += roi_coords[0]
+                                ey += roi_coords[1]
+                            cv2.line(annotated_frame, (sx, sy), (ex, ey), (255, 0, 0), 2)
+            # ROI以外を黒く塗りつぶす
+            if roi_coords:
+                roi_x1, roi_y1, roi_x2, roi_y2 = roi_coords
+                annotated_frame = cv2.copyMakeBorder(
+                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2],
+                    roi_y1, height - roi_y2,
+                    roi_x1, width - roi_x2,
+                    cv2.BORDER_CONSTANT,
+                    value=[0, 0, 0]
+                )
+            # 結果を表示
+            cv2.imshow('Pose Detection', annotated_frame)
+            if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
+                break
     cap.release()
-    #out_3d.release()
-    #out_pose.release()
-    print('3D骨格動画を保存しました: 3d-output.mp4')
-    print('骨格検出動画を保存しました: pose-detection.mp4')
+    cv2.destroyAllWindows()
     
     # 信頼度スコアのグラフを作成
     detectionResult(confidence_scores)
-
     # --- 追加統計処理 ---
     total_frames = len(confidence_scores)
     zero_score_frames = [score for t, score in confidence_scores if score == 0.0]
     num_zero_score_frames = len(zero_score_frames)
     zero_score_percent = (num_zero_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
-
-    # 信頼度スコア0が1秒以上続いた区間の個数をカウント
     zero_streaks = 0
     streak_length = 0
     for t, score in confidence_scores:
         if score == 0.0:
             streak_length += 1
         else:
-            if streak_length >= fps:  # 1秒以上
+            if streak_length >= fps:
                 zero_streaks += 1
             streak_length = 0
-    # 最後が0で終わる場合
     if streak_length >= fps:
         zero_streaks += 1
-
-    # 信頼度スコアが0より大きいフレームの平均信頼度スコア
     positive_scores = [score for t, score in confidence_scores if score > 0.0]
     avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
-
     print(f'総フレーム数: {total_frames}')
     print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
     print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
     print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-    
+
 if __name__ == '__main__':
     main()
