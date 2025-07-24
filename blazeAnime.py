@@ -22,20 +22,20 @@ def calculate_full_body_visibility(landmarks):
         return 0.0
 
 # 信頼度スコアのグラフを作成する関数
-def plot_confidence_graph(confidence_data, output_filename='blaze_confidence.png'):
+def detectionResult(confidence_data):
+
     times = [t for t, s in confidence_data]
     scores = [s for t, s in confidence_data]
-    
     plt.figure(figsize=(10, 5))
     plt.plot(times, scores, marker='o', linestyle='-')
+    plt.ylim(0, 1)
     plt.xlabel('time(second)')
-    plt.ylabel('full body visibility score')
-    plt.title('Full Body Visibility Score per Frame (BlazePose)')
+    plt.ylabel('confidence score')
+    plt.title('Full Body Visibility Score per Frame')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(output_filename)
+    plt.savefig('blaze-result')
     plt.close()
-    print(f'信頼度スコアグラフを保存しました: {output_filename}')
 
 # 検出結果の描画
 def plot_world_landmarks(
@@ -128,16 +128,16 @@ def main():
         num_poses=1)
     
     # 動画ファイルの読み込み
-    cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")
+    cap = cv2.VideoCapture(r"E:\ski\data\clip.mp4")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     
     # 3D骨格動画の出力設定
-    out_3d = cv2.VideoWriter(r'E:\ski\data\3d-output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    #out_3d = cv2.VideoWriter(r'E:\ski\data\3d-output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
     
     # 骨格検出結果を描画した動画の出力設定
-    out_pose = cv2.VideoWriter(r'E:\ski\data\pose-detection.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+    #out_pose = cv2.VideoWriter(r'E:\ski\data\pose-detection.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
 
     # 信頼度スコアを保存するリスト
     confidence_scores = []
@@ -203,7 +203,7 @@ def main():
                             cv2.line(annotated_frame, (start_x, start_y), (end_x, end_y), (255, 0, 0), 2)
             
             # 骨格検出動画を保存
-            out_pose.write(annotated_frame)
+            #out_pose.write(annotated_frame)
 
             # 3D骨格描画
             fig = plt.figure(figsize=(width/100, height/100), dpi=100)
@@ -230,16 +230,45 @@ def main():
                 img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
             # サイズ調整（念のため）
             #img_np = cv2.resize(img_np, (width, height))
-            out_3d.write(img_np)
+            #out_3d.write(img_np)
             
     cap.release()
-    out_3d.release()
-    out_pose.release()
+    #out_3d.release()
+    #out_pose.release()
     print('3D骨格動画を保存しました: 3d-output.mp4')
     print('骨格検出動画を保存しました: pose-detection.mp4')
     
     # 信頼度スコアのグラフを作成
-    plot_confidence_graph(confidence_scores, 'blaze_confidence.png')
+    detectionResult(confidence_scores)
+
+    # --- 追加統計処理 ---
+    total_frames = len(confidence_scores)
+    zero_score_frames = [score for t, score in confidence_scores if score == 0.0]
+    num_zero_score_frames = len(zero_score_frames)
+    zero_score_percent = (num_zero_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
+
+    # 信頼度スコア0が1秒以上続いた区間の個数をカウント
+    zero_streaks = 0
+    streak_length = 0
+    for t, score in confidence_scores:
+        if score == 0.0:
+            streak_length += 1
+        else:
+            if streak_length >= fps:  # 1秒以上
+                zero_streaks += 1
+            streak_length = 0
+    # 最後が0で終わる場合
+    if streak_length >= fps:
+        zero_streaks += 1
+
+    # 信頼度スコアが0より大きいフレームの平均信頼度スコア
+    positive_scores = [score for t, score in confidence_scores if score > 0.0]
+    avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
+
+    print(f'総フレーム数: {total_frames}')
+    print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
+    print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
+    print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
     
 if __name__ == '__main__':
     main()
