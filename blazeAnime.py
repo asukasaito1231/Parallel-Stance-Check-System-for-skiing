@@ -23,18 +23,33 @@ def calculate_full_body_visibility(landmarks):
 
 # 信頼度スコアのグラフを作成する関数
 def detectionResult(confidence_data):
-
     times = [t for t, s in confidence_data]
     scores = [s for t, s in confidence_data]
+
+    # 通常プロット
     plt.figure(figsize=(10, 5))
     plt.plot(times, scores, marker='o', linestyle='-')
     plt.ylim(0, 1)
     plt.xlabel('time(second)')
     plt.ylabel('confidence score')
-    plt.title('Full Body Visibility Score per Frame')
+    plt.title('Confidence Score per Frame (blazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-result')
+    plt.savefig('blaze-roi-result.png')
+    plt.close()
+
+    # 時間軸反転プロット
+    max_time = max(times)
+    reversed_times = [max_time - t for t in times]
+    plt.figure(figsize=(10, 5))
+    plt.plot(reversed_times, scores, marker='o', linestyle='-')
+    plt.ylim(0, 1)
+    plt.xlabel('time(second, reversed)')
+    plt.ylabel('confidence score')
+    plt.title('Confidence Score per Frame (blazePose)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('blaze-roi-result.png')
     plt.close()
 
 # 検出結果の描画
@@ -207,12 +222,12 @@ def main():
                 cy = int((current_bbox[1] + current_bbox[3]) / 2)
                 bbox_w = current_bbox[2] - current_bbox[0]
                 bbox_h = current_bbox[3] - current_bbox[1]
-                x_margin = bbox_w
-                y_margin = bbox_h
-                roi_x1 = max(0, cx - bbox_w // 2 - x_margin)
-                roi_y1 = max(0, cy - bbox_h // 2 - y_margin)
-                roi_x2 = min(width, cx + bbox_w // 2 + x_margin)
-                roi_y2 = min(height, cy + bbox_h // 2 + y_margin)
+                x_margin = bbox_w*2
+                y_margin = bbox_h*2
+                roi_x1 = int(max(0, cx - bbox_w // 2 - x_margin))
+                roi_y1 = int(max(0, cy - bbox_h // 2 - y_margin))
+                roi_x2 = int(min(width, cx + bbox_w // 2 + x_margin))
+                roi_y2 = int(min(height, cy + bbox_h // 2 + y_margin))
                 roi_frame = frame[roi_y1:roi_y2, roi_x1:roi_x2]
                 roi_rgb = rgb_frame[roi_y1:roi_y2, roi_x1:roi_x2]
                 roi_coords = (roi_x1, roi_y1, roi_x2, roi_y2)
@@ -277,6 +292,7 @@ def main():
                                 ex += roi_coords[0]
                                 ey += roi_coords[1]
                             cv2.line(annotated_frame, (sx, sy), (ex, ey), (255, 0, 0), 2)
+            
             # ROI以外を黒く塗りつぶす
             if roi_coords:
                 roi_x1, roi_y1, roi_x2, roi_y2 = roi_coords
@@ -287,6 +303,7 @@ def main():
                     cv2.BORDER_CONSTANT,
                     value=[0, 0, 0]
                 )
+            
             # 結果を表示
             cv2.imshow('Pose Detection', annotated_frame)
             if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
