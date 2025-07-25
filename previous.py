@@ -6,17 +6,39 @@ import matplotlib.pyplot as plt
 # bbox検出結果表示関数
 def detectionResult(confidence):
     
+    
+    # 通常プロット
     times = [t for t, s in confidence]
     scores = [s for t, s in confidence]
+
+
+    # 通常プロット
     plt.figure(figsize=(10, 5))
     plt.plot(times, scores, marker='o', linestyle='-')
+    plt.ylim(0, 1)
     plt.xlabel('time(second)')
     plt.ylabel('confidence score')
-    plt.title('Confidence Score per Frame')
+    plt.title('Confidence Score per Frame(YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('perfect-clip.png')
+    plt.savefig('yolo-roi-result-usual.png')
     plt.close()
+    
+
+    # 時間軸反転プロット
+    max_time = max(times)
+    reversed_times = [max_time - t for t in times]
+    plt.figure(figsize=(10, 5))
+    plt.plot(reversed_times, scores, marker='o', linestyle='-')
+    plt.ylim(0, 1)
+    plt.xlabel('time(second)')
+    plt.ylabel('confidence score')
+    plt.title('Confidence Score per Frame (YOLO)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('YOLO-roi-result-reversed.png')
+    plt.close()
+
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
@@ -118,53 +140,70 @@ while True:
         print("動画の再生が終了しました。")
         break
 
-    # バウンディングボックスの中心座標を計算
-    center_x = int((current_bbox[0] + current_bbox[2]) / 2)
-    center_y = int((current_bbox[1] + current_bbox[3]) / 2)
+    try:
+        if current_bbox is not None:
 
-    # current_bboxの幅と高さを計算
-    bbox_width = current_bbox[2] - current_bbox[0]
-    bbox_height = current_bbox[3] - current_bbox[1]
+            # バウンディングボックスの中心座標を計算
+            center_x = int((current_bbox[0] + current_bbox[2]) / 2)
+            center_y = int((current_bbox[1] + current_bbox[3]) / 2)
 
-    #多少余白を持たせることで確実にターゲットを検出 
-    x_margin=bbox_width/2
-    y_margin=bbox_height/6
+            # current_bboxの幅と高さを計算
+            bbox_width = current_bbox[2] - current_bbox[0]
+            bbox_height = current_bbox[3] - current_bbox[1]
 
-    # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
-    roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
-    roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
-    roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
-    roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
+            #多少余白を持たせることで確実にターゲットを検出 
+            x_margin=bbox_width
+            y_margin=bbox_height/6
 
-    roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
+            # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
+            roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
+            roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
+            roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
+            roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
 
-    # ROI領域でYOLOを実行
-    results = model(roi)
+            roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
-    # 2人以上や検出しなかった場合はcurrent_bboxの位置はそのまま
-    if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
-        curret_bbox = current_bbox
-            
-    else:# 検出されたバウンディングボックスをcurrent_bboxに設定
-        detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
-        #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
-        current_bbox = [
-            detected_bbox[0]+roi_x1,
-            detected_bbox[1]+roi_y1,
-            detected_bbox[2]+roi_x1,
-            detected_bbox[3]+roi_y1
-            ]
-            
-    annotated_frame = results[0].plot()
+            # ROIを元のサイズに拡大
+            #roi = cv2.resize(roi, (width, height))
 
-    # ROI以外を黒く塗りつぶす
-    annotated_frame = cv2.copyMakeBorder(
-            annotated_frame,
-            roi_y1, height - roi_y2,
-            roi_x1, width - roi_x2,
-            cv2.BORDER_CONSTANT,
-            value=[0, 0, 0]
-        )
+            # ROI領域でYOLOを実行
+            results = model(roi)
+
+            # 検出されたバウンディングボックスをcurrent_bboxに設定
+            if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
+                curret_bbox = current_bbox
+
+            else:# 検出されたバウンディングボックスをcurrent_bboxに設定
+                detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+                #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
+                current_bbox = [
+                    detected_bbox[0]+roi_x1,
+                    detected_bbox[1]+roi_y1,
+                    detected_bbox[2]+roi_x1,
+                    detected_bbox[3]+roi_y1
+                    ]
+
+            annotated_frame = results[0].plot()
+
+            # ROI以外を黒く塗りつぶす
+            annotated_frame = cv2.copyMakeBorder(
+                annotated_frame,
+                roi_y1, height - roi_y2,
+                roi_x1, width - roi_x2,
+                cv2.BORDER_CONSTANT,
+                value=[0, 0, 0]
+            )
+
+        # current_bboxがnoneの場合
+        else:
+          # YOLOでフレーム全体サイズのままポーズ推定を実行
+          results = model(frame)
+          annotated_frame = results[0].plot()
+
+    except Exception as e:
+        print('try文に突入しなかった')
+        results = model(frame)
+        annotated_frame = results[0].plot()
 
     frame_number = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
 
