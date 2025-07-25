@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # bbox検出結果表示関数
 def detectionResult(confidence):
     
-    
+    '''
     # 通常プロット
     times = [t for t, s in confidence]
     scores = [s for t, s in confidence]
@@ -38,7 +38,32 @@ def detectionResult(confidence):
     plt.tight_layout()
     plt.savefig('YOLO-roi-result-reversed.png')
     plt.close()
+    '''
 
+def isParallel(keypoints, angle_threshold=20):
+    # COCOフォーマット: 11=左股関節, 12=右股関節, 13=左膝, 14=右膝, 15=左足首, 16=右足首
+    # YOLOv8のkeypoints順序に合わせてインデックスを調整してください
+    # 例: [nose, left_eye, right_eye, ..., left_ankle, right_ankle]
+    # ここではCOCO順と仮定
+    left_knee = keypoints[13][:2]
+    right_knee = keypoints[14][:2]
+    left_ankle = keypoints[15][:2]
+    right_ankle = keypoints[16][:2]
+
+    # 膝→足首ベクトル
+    left_leg_vec = left_ankle - left_knee
+    right_leg_vec = right_ankle - right_knee
+
+    angle = angle_between(left_leg_vec, right_leg_vec)
+    return angle < angle_threshold
+
+# ベクトルのなす角度を計算
+def angle_between(v1, v2):
+    v1 = v1 / (np.linalg.norm(v1) + 1e-8)
+    v2 = v2 / (np.linalg.norm(v2) + 1e-8)
+    dot = np.clip(np.dot(v1, v2), -1.0, 1.0)
+    angle = np.arccos(dot) * 180 / np.pi
+    return angle
 
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
@@ -103,6 +128,8 @@ ret, first_frame = cap.read()
 # フレームの高さと幅を取得
 height, width, _ = first_frame.shape
 
+black_frame = np.zeros((height, width, 3), dtype=np.uint8)
+
 if ret:
     try:
         # YOLOでポーズ推定を実行
@@ -124,6 +151,7 @@ if ret:
         else:
             print("最初のフレームで人物が検出されませんでした")
             exit()
+
     except Exception as e:
         print(f"エラーが発生しました: {e}")
         exit()
@@ -133,9 +161,13 @@ cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
 confidence=[]
 
+notParallel=0
+confirm=0
+
 #フレーム読み込み開始
 while True:
     ret, frame = cap.read()
+
     if not ret:
         print("動画の再生が終了しました。")
         break
@@ -152,8 +184,8 @@ while True:
             bbox_height = current_bbox[3] - current_bbox[1]
 
             #多少余白を持たせることで確実にターゲットを検出 
-            x_margin=bbox_width
-            y_margin=bbox_height/6
+            x_margin=bbox_width/2
+            y_margin=bbox_height/5
 
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -163,17 +195,19 @@ while True:
 
             roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
+            confirm+=1
             # ROIを元のサイズに拡大
             #roi = cv2.resize(roi, (width, height))
 
             # ROI領域でYOLOを実行
             results = model(roi)
 
-            # 検出されたバウンディングボックスをcurrent_bboxに設定
+            # 2人以上あるいは検出無しだった場合はcurrent_bboxはそのまま
             if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
                 curret_bbox = current_bbox
 
-            else:# 検出されたバウンディングボックスをcurrent_bboxに設定
+            # ただ1人のみ検出された場合はcurrent_bboxを更新
+            else:
                 detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
                 #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
                 current_bbox = [
@@ -182,17 +216,29 @@ while True:
                     detected_bbox[2]+roi_x1,
                     detected_bbox[3]+roi_y1
                     ]
+                
+                # キーポイント取得
+                keypoints = results[0].keypoints[0].data.cpu().numpy()
 
-            annotated_frame = results[0].plot()
+                parallel = isParallel(keypoints)
 
-            # ROI以外を黒く塗りつぶす
-            annotated_frame = cv2.copyMakeBorder(
-                annotated_frame,
-                roi_y1, height - roi_y2,
-                roi_x1, width - roi_x2,
-                cv2.BORDER_CONSTANT,
-                value=[0, 0, 0]
-            )
+                if not parallel:
+                    # ROI領域のみ青色で塗りつぶす
+                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 0] = 255  # B
+                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 1] = 0    # G
+                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 2] = 0    # R
+                    notParallel+=1
+
+                annotated_frame = results[0].plot()
+
+                # ROI以外を黒く塗りつぶす
+                annotated_frame = cv2.copyMakeBorder(
+                    annotated_frame,
+                    roi_y1, height - roi_y2,
+                    roi_x1, width - roi_x2,
+                    cv2.BORDER_CONSTANT,
+                    value=[0, 0, 0]
+                    )
 
         # current_bboxがnoneの場合
         else:
@@ -255,6 +301,8 @@ print(f'総フレーム数: {total_frames}')
 print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
 print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
 print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
+print(f'パラレルが崩れた回数 : {notParallel}')
+print(confirm)
 
 detectionResult(confidence)
 cap.release()
