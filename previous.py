@@ -195,7 +195,6 @@ while True:
 
             roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
-            confirm+=1
             # ROIを元のサイズに拡大
             #roi = cv2.resize(roi, (width, height))
 
@@ -220,14 +219,18 @@ while True:
                 # キーポイント取得
                 keypoints = results[0].keypoints[0].data.cpu().numpy()
 
-                parallel = isParallel(keypoints)
 
-                if not parallel:
+                #parallel = isParallel(keypoints)
+
+                parallel=True
+
+                confirm+=1
+
+                if parallel:
                     # ROI領域のみ青色で塗りつぶす
-                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 0] = 255  # B
-                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 1] = 0    # G
-                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 2] = 0    # R
-                    notParallel+=1
+                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 0] = 255  # B
+                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 1] = 0    # G
+                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 2] = 0    # R
 
                 annotated_frame = results[0].plot()
 
@@ -301,8 +304,7 @@ print(f'総フレーム数: {total_frames}')
 print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
 print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
 print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-print(f'パラレルが崩れた回数 : {notParallel}')
-print(confirm)
+#print(f'パラレルが崩れた回数 : {notParallel}')
 
 detectionResult(confidence)
 cap.release()
