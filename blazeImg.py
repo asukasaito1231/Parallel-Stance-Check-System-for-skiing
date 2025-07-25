@@ -2,6 +2,8 @@ import cv2
 import mediapipe as mp
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib
+matplotlib.rcParams['font.family'] = 'MS Gothic'
 
 # 検出結果の描画
 def plot_world_landmarks(
@@ -83,6 +85,30 @@ def plot_world_landmarks(
     ax.plot(shoulder_x, shoulder_y, shoulder_z)
     ax.plot(waist_x, waist_y, waist_z)
 
+def isParallel(keypoints, angle_threshold=35):
+    
+    # 13=左膝, 14=右膝, 15=左足首, 16=右足首のランドマークを取得
+    left_knee = np.array([keypoints[13].x, keypoints[13].y, keypoints[13].z])
+    right_knee = np.array([keypoints[14].x, keypoints[14].y, keypoints[14].z])
+    left_ankle = np.array([keypoints[15].x, keypoints[15].y, keypoints[15].z])
+    right_ankle = np.array([keypoints[16].x, keypoints[16].y, keypoints[16].z])
+
+    # 膝→足首ベクトル
+    left_leg_vec = left_ankle - left_knee
+    right_leg_vec = right_ankle - right_knee
+
+    # 左右の脚ベクトルのなす角度を計算
+    angle = angle_between(left_leg_vec, right_leg_vec)
+
+    return angle < angle_threshold, angle
+
+def angle_between(v1, v2):
+    v1 = v1 / (np.linalg.norm(v1) + 1e-8)
+    v2 = v2 / (np.linalg.norm(v2) + 1e-8)
+    dot = np.clip(np.dot(v1, v2), -1.0, 1.0)
+    angle = np.arccos(dot) * 180 / np.pi
+    return angle
+
 def main():
     BaseOptions = mp.tasks.BaseOptions
     PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -94,7 +120,7 @@ def main():
         num_poses=1)
     with PoseLandmarker.create_from_options(options) as landmarker:
         # 画像ファイルの読み込み
-        mp_image = mp.Image.create_from_file('image.png')
+        mp_image = mp.Image.create_from_file('two.jpg')
         # 解析実行
         pose_landmarker_result = landmarker.detect(mp_image)
         
@@ -103,14 +129,23 @@ def main():
         ax = fig.add_subplot(111, projection='3d')
         fig.subplots_adjust(left=0.0, right=1, bottom=0, top=1)
         for marks in pose_landmarker_result.pose_world_landmarks:
+            # パラレル診断
+            is_parallel, angle = isParallel(marks)
+            if is_parallel:
+                result_text = f"脚は平行です（なす角度: {angle:.2f}度）"
+            else:
+                result_text = f"脚は平行ではありません（なす角度: {angle:.2f}度）"
+            print(result_text)
             # すべての骨格座標をターミナルに表示
-            for i, landmark in enumerate(marks):
-                print(f"Landmark {i}: x={landmark.x}, y={landmark.y}, z={landmark.z}, visibility={landmark.visibility}")
+            #for i, landmark in enumerate(marks):
+                #print(f"Landmark {i}: x={landmark.x}, y={landmark.y}, z={landmark.z}, visibility={landmark.visibility}")
             plot_world_landmarks(
                 plt,
                 ax,
                 marks,
             )
+        # 画像内に診断結果を描画
+        plt.figtext(0.5, 0.05, result_text, ha='center', fontsize=16, color='red', bbox={'facecolor':'white', 'alpha':0.7, 'pad':5})
         plt.savefig('result.jpg')
         plt.show()
     
