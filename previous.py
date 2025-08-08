@@ -275,37 +275,43 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
+'''
 # --- 追加統計処理 ---
-total_frames = len(confidence)
-zero_score_frames = [score for t, score in confidence if score == 0.0]
-num_zero_score_frames = len(zero_score_frames)
-zero_score_percent = (num_zero_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
 
-# 信頼度スコア0(bbox検出無し)が1秒以上続いた区間の個数をカウント
+# bbox検出成功のフレーム数
+total_frames = len(confidence)
+exit_score_frames = [score for t, score in confidence if score > 0.0]
+num_exit_score_frames = len(exit_score_frames)
+exit_score_percent = (num_exit_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
+
+# bbox検出無しが0.5秒以上続いた区間の個数
 zero_streaks = 0
 streak_length = 0
+judge=fps/2
+
 for t, score in confidence:
     if score == 0.0:
         streak_length += 1
     else:
-        if streak_length >= fps:  # 1秒以上
+        if streak_length >= judge:  # 1秒以上
             zero_streaks += 1
         streak_length = 0
 
 # 最後が0で終わる場合
-if streak_length >= fps:
+if streak_length >= judge:
     zero_streaks += 1
 
-# 信頼度スコアが0より大きいフレームの平均信頼度スコア
+# bboxを検出した際の平均信頼度スコア
 positive_scores = [score for t, score in confidence if score > 0.0]
 avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
 
 print(f'総フレーム数: {total_frames}')
-print(f'bbox検出無しのフレーム数: {num_zero_score_frames} ({zero_score_percent:.2f}%)')
-print(f'bbox検出無しが1秒以上続いた区間の個数: {zero_streaks}')
+print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
+print(f'bbox検出無しが0.5秒以上続いた区間の個数: {zero_streaks}')
 print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
 #print(f'パラレルが崩れた回数 : {notParallel}')
 
 detectionResult(confidence)
+'''
 cap.release()
 #out.release()
