@@ -3,6 +3,8 @@ from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
 
+confirm=0
+
 # bbox検出結果表示関数
 def detectionResult(confidence):
     
@@ -40,22 +42,48 @@ def detectionResult(confidence):
     plt.close()
     '''
 
-def isParallel(keypoints, angle_threshold=20):
-    # COCOフォーマット: 11=左股関節, 12=右股関節, 13=左膝, 14=右膝, 15=左足首, 16=右足首
-    # YOLOv8のkeypoints順序に合わせてインデックスを調整してください
-    # 例: [nose, left_eye, right_eye, ..., left_ankle, right_ankle]
-    # ここではCOCO順と仮定
-    left_knee = keypoints[13][:2]
-    right_knee = keypoints[14][:2]
-    left_ankle = keypoints[15][:2]
-    right_ankle = keypoints[16][:2]
-
-    # 膝→足首ベクトル
-    left_leg_vec = left_ankle - left_knee
-    right_leg_vec = right_ankle - right_knee
-
-    angle = angle_between(left_leg_vec, right_leg_vec)
-    return angle < angle_threshold
+def isParallel(keypoints, angle_threshold=35):
+    global confirm
+    
+    try:
+        # キーポイントの存在確認（YOLOv8は17個のキーポイント）
+        if len(keypoints) < 17:
+            print(f'キーポイントが不足: {len(keypoints)}個（期待値: 17個）')
+            return False
+            
+        # 必要なキーポイントの存在確認
+        required_indices = [13, 14, 15, 16]  # 左膝、右膝、左足首、右足首
+        for idx in required_indices:
+            if idx >= len(keypoints):
+                print(f'キーポイント{idx}が存在しません')
+                return False
+            if np.any(np.isnan(keypoints[idx][:2])):
+                print(f'キーポイント{idx}の座標が無効です')
+                return False
+                
+        left_knee = keypoints[13][:2]
+        right_knee = keypoints[14][:2]
+        left_ankle = keypoints[15][:2]
+        right_ankle = keypoints[16][:2]
+        
+        # 膝→足首ベクトル
+        left_leg_vec = left_ankle - left_knee
+        right_leg_vec = right_ankle - right_knee
+        
+        # ベクトルの長さ確認
+        if (np.linalg.norm(left_leg_vec) < 1e-8 or 
+            np.linalg.norm(right_leg_vec) < 1e-8):
+            print('ベクトルの長さが0')
+            return False
+            
+        angle = angle_between(left_leg_vec, right_leg_vec)
+        confirm += 1
+        
+        return angle < angle_threshold
+        
+    except (IndexError, TypeError, ValueError) as e:
+        print(f"isParallel関数でエラー: {e}")
+        return False
 
 # ベクトルのなす角度を計算
 def angle_between(v1, v2):
@@ -68,8 +96,9 @@ def angle_between(v1, v2):
 # YOLOモデルの読み込み
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
-# 動画キャプチャの初期化
-cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")  # 動画ファイルを指定
+# 動画ファイルを指定
+#cap = cv2.VideoCapture(r"E:\ski\data\parallel-judge.mp4")
+cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -162,7 +191,6 @@ cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 confidence=[]
 
 notParallel=0
-confirm=0
 
 #フレーム読み込み開始
 while True:
@@ -195,9 +223,6 @@ while True:
 
             roi=frame[roi_y1:roi_y2, roi_x1:roi_x2]
 
-            # ROIを元のサイズに拡大
-            #roi = cv2.resize(roi, (width, height))
-
             # ROI領域でYOLOを実行
             results = model(roi)
 
@@ -215,24 +240,25 @@ while True:
                     detected_bbox[2]+roi_x1,
                     detected_bbox[3]+roi_y1
                     ]
-                
+
+                annotated_frame = results[0].plot()
+
                 # キーポイント取得
                 keypoints = results[0].keypoints[0].data.cpu().numpy()
 
+                print(f'検出されたキーポイント数: {len(keypoints)}')
 
-                #parallel = isParallel(keypoints)
+                parallel = isParallel(keypoints)
+                
+                # パラレルが崩れたらnotParallelをカウントしROI領域を青色で塗りつぶす
+                if parallel==False:
 
-                parallel=True
+                    notParallel+=1
 
-                confirm+=1
-
-                if parallel:
                     # ROI領域のみ青色で塗りつぶす
-                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 0] = 255  # B
-                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 1] = 0    # G
-                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 2] = 0    # R
-
-                annotated_frame = results[0].plot()
+                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 0] = 255  # B
+                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 1] = 0    # G
+                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 2] = 0    # R
 
                 # ROI以外を黒く塗りつぶす
                 annotated_frame = cv2.copyMakeBorder(
@@ -313,5 +339,8 @@ print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.
 
 detectionResult(confidence)
 '''
+
+print(f'パラレルが崩れた回数 : {notParallel}')
+print(f'角度計算はしてるのか : {confirm}')
 cap.release()
 #out.release()
