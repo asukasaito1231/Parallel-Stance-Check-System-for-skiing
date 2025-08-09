@@ -42,24 +42,10 @@ def detectionResult(confidence):
     plt.close()
     '''
 
-def isParallel(keypoints, angle_threshold=35):
+def isParallel(keypoints, angle_threshold=20):
     global confirm
     
     try:
-        # キーポイントの存在確認（YOLOv8は17個のキーポイント）
-        if len(keypoints) < 17:
-            print(f'キーポイントが不足: {len(keypoints)}個（期待値: 17個）')
-            return False
-            
-        # 必要なキーポイントの存在確認
-        required_indices = [13, 14, 15, 16]  # 左膝、右膝、左足首、右足首
-        for idx in required_indices:
-            if idx >= len(keypoints):
-                print(f'キーポイント{idx}が存在しません')
-                return False
-            if np.any(np.isnan(keypoints[idx][:2])):
-                print(f'キーポイント{idx}の座標が無効です')
-                return False
                 
         left_knee = keypoints[13][:2]
         right_knee = keypoints[14][:2]
@@ -69,14 +55,10 @@ def isParallel(keypoints, angle_threshold=35):
         # 膝→足首ベクトル
         left_leg_vec = left_ankle - left_knee
         right_leg_vec = right_ankle - right_knee
-        
-        # ベクトルの長さ確認
-        if (np.linalg.norm(left_leg_vec) < 1e-8 or 
-            np.linalg.norm(right_leg_vec) < 1e-8):
-            print('ベクトルの長さが0')
-            return False
             
         angle = angle_between(left_leg_vec, right_leg_vec)
+        print(f'角度: {angle}')
+        
         confirm += 1
         
         return angle < angle_threshold
@@ -97,7 +79,7 @@ def angle_between(v1, v2):
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画ファイルを指定
-#cap = cv2.VideoCapture(r"E:\ski\data\parallel-judge.mp4")
+#cap = cv2.VideoCapture(r"E:\ski\data\puruku.mp4")
 cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")
 
 if not cap.isOpened():
@@ -244,21 +226,32 @@ while True:
                 annotated_frame = results[0].plot()
 
                 # キーポイント取得
-                keypoints = results[0].keypoints[0].data.cpu().numpy()
+                keypoints_raw = results[0].keypoints[0].data.cpu().numpy()
+                
+                #elif len(keypoints_raw.shape) == 3 and keypoints_raw.shape[1] == 17:
+                #(1検出人数, 17キーポイント, 3座標とスコア)
+                #検出された1人目のキーポイントを取得
+                keypoints = keypoints_raw[0]
 
                 print(f'検出されたキーポイント数: {len(keypoints)}')
 
                 parallel = isParallel(keypoints)
                 
                 # パラレルが崩れたらnotParallelをカウントしROI領域を青色で塗りつぶす
-                if parallel==False:
+                if not parallel:
 
                     notParallel+=1
 
-                    # ROI領域のみ青色で塗りつぶす
-                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 0] = 255  # B
-                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 1] = 0    # G
-                    #annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2, 2] = 0    # R
+                    '''
+                    # ROI領域に薄い赤色のオーバーレイを適用
+                    roi_overlay = annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2].copy()
+                    roi_overlay[:, :, 0] = 0    # B (青を0にする)
+                    roi_overlay[:, :, 1] = 0    # G (緑を0にする)  
+                    roi_overlay[:, :, 2] = 255  # R (赤を最大にする)
+                    # 元のフレームと赤色オーバーレイをブレンド（透明度0.3で薄い赤色）
+                    annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2] = cv2.addWeighted(
+                        annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2], 0.7, roi_overlay, 0.3, 0)
+                    '''
 
                 # ROI以外を黒く塗りつぶす
                 annotated_frame = cv2.copyMakeBorder(
@@ -340,6 +333,7 @@ print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.
 detectionResult(confidence)
 '''
 
+print(f'総フレーム数: {frame_number}')
 print(f'パラレルが崩れた回数 : {notParallel}')
 print(f'角度計算はしてるのか : {confirm}')
 cap.release()
