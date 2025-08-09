@@ -325,48 +325,49 @@ def main():
                 break
 
         '''
-        # --- 追加統計処理 ---
+    # --- 追加統計処理 ---
 
-        # bbox検出成功のフレーム数
-        total_frames = len(confidence)
-        exit_score_frames = [score for t, score in confidence if score > 0.0]
-        num_exit_score_frames = len(exit_score_frames)
-        exit_score_percent = (num_exit_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
+    # bbox検出成功のフレーム数
+    total_frames = len(confidence)
+    exit_score_frames = [score for t, score in confidence if score > 0.0]
+    num_exit_score_frames = len(exit_score_frames)
+    exit_score_percent = (num_exit_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
 
-        # bbox検出無しが0.5秒以上続いた区間の個数
-        zero_streaks = 0
-        streak_length = 0
-        judge = fps / 2
+    # bbox検出無しが0.5秒以上続いた区間の個数
+    zero_streaks = 0
+    streak_length = 0
+    judge = fps / 2
 
-        for t, score in confidence:
-            if score == 0.0:
-                streak_length += 1
-            else:
-                if streak_length >= judge:  # 1秒以上
-                    zero_streaks += 1
-                streak_length = 0
+    for t, score in confidence:
+        if score == 0.0:
+            streak_length += 1
 
-        # 最後が0で終わる場合
-        if streak_length >= judge:
-            zero_streaks += 1
+        else:
+            if streak_length >= judge:  # 1秒以上
+                zero_streaks += 1
+            streak_length = 0
 
-        # bboxを検出した際の平均信頼度スコア
-        positive_scores = [score for t, score in confidence if score > 0.0]
-        avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
+    # 最後が0で終わる場合
+    if streak_length >= judge:
+        zero_streaks += 1
 
-        print(f'総フレーム数: {total_frames}')
-        print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
-        print(f'bbox検出無しが0.5秒以上続いた区間の個数: {zero_streaks}')
-        print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-        #print(f'パラレルが崩れた回数 : {notParallel}')
+    # bboxを検出した際の平均信頼度スコア
+    positive_scores = [score for t, score in confidence if score > 0.0]
+    avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
 
-        detectionResult(confidence)
-        '''
+    print(f'総フレーム数: {total_frames}')
+    print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
+    print(f'bbox検出無しが0.5秒以上続いた区間の個数: {zero_streaks}')
+    print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
+    #print(f'パラレルが崩れた回数 : {notParallel}')
 
-        print(f'総フレーム数: {frame_number}')
-        print(f'パラレルが崩れた回数 : {notParallel}')
-        print(f'角度計算はしてるのか : {confirm}')
-        cap.release()
+    detectionResult(confidence)
+    '''
+
+    print(f'総フレーム数: {frame_number}')
+    print(f'パラレルが崩れた回数 : {notParallel}')
+    print(f'角度計算はしてるのか : {confirm}')
+    cap.release()
 
 if __name__ == '__main__':
     main()
