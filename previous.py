@@ -139,8 +139,6 @@ ret, first_frame = cap.read()
 # フレームの高さと幅を取得
 height, width, _ = first_frame.shape
 
-black_frame = np.zeros((height, width, 3), dtype=np.uint8)
-
 if ret:
     try:
         # YOLOでポーズ推定を実行
