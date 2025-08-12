@@ -7,6 +7,42 @@ from PIL import Image
 
 confirm=0
 
+# 角度表示関数
+def angleTable(angles):
+    
+    times = [t for t, a in angles]
+    angle = [a for t, a in angles]
+
+    maxAngle=max(angle)
+    minAngle=min(angle)
+    ''''
+    # 通常プロット
+    plt.figure(figsize=(10, 5))
+    plt.plot(times, angle, marker='o', linestyle='-')
+    plt.ylim(minAngle, maxAngle)
+    plt.xlabel('time(second)')
+    plt.ylabel('angle')
+    plt.title('angle per Frame(blaze)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('blaze-roi-angle.png')
+    plt.close()
+    '''
+
+    # 時間軸反転プロット
+    max_time = max(times)
+    reversed_times = [max_time - t for t in times]
+    plt.figure(figsize=(10, 5))
+    plt.plot(reversed_times, angle, marker='o', linestyle='-')
+    plt.ylim(minAngle, maxAngle)
+    plt.xlabel('time(second)')
+    plt.ylabel('angle')
+    plt.title('angle per Frame (blaze)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('blaze-roi-angle-reversed.png')
+    plt.close()
+
 def isParallel(keypoints, angle_threshold=20):
 
     global confirm
@@ -23,11 +59,10 @@ def isParallel(keypoints, angle_threshold=20):
         right_leg_vec = right_ankle - right_knee
             
         angle = angle_between(left_leg_vec, right_leg_vec)
-        print(f'角度: {angle}')
         
         confirm += 1
         
-        return angle < angle_threshold
+        return angle < angle_threshold, angle
         
     except (IndexError, TypeError, ValueError) as e:
         print(f"isParallel関数でエラー: {e}")
@@ -59,9 +94,11 @@ def calculate_full_body_visibility(landmarks):
 
 # 信頼度スコアのグラフを作成する関数
 def detectionResult(confidence_data):
+
     times = [t for t, s in confidence_data]
     scores = [s for t, s in confidence_data]
-
+    
+    '''
     # 通常プロット
     plt.figure(figsize=(10, 5))
     plt.plot(times, scores, marker='o', linestyle='-')
@@ -71,8 +108,9 @@ def detectionResult(confidence_data):
     plt.title('Confidence Score per Frame (blazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-roi-result.png')
+    plt.savefig('blaze-roi-bbox.png')
     plt.close()
+    '''
 
     # 時間軸反転プロット
     max_time = max(times)
@@ -85,7 +123,7 @@ def detectionResult(confidence_data):
     plt.title('Confidence Score per Frame (blazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-roi-result.png')
+    plt.savefig('blaze-roi-bbox-reversed.png')
     plt.close()
 
 # 検出結果の描画
@@ -188,12 +226,12 @@ def main():
         num_poses=1)
 
     # 動画ファイルの読み込み
-    cap = cv2.VideoCapture(r"E:\ski\data\parallel-judge.mp4")
+    cap = cv2.VideoCapture(r"E:\ski\data\expand-reversed.mp4")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter('blze.mp4', fourcc, fps, (width, height))
+    #out = cv2.VideoWriter('blaze.mp4', fourcc, fps, (width, height))
 
     '''
     # --- 逆再生動画の作成 ---
@@ -214,7 +252,8 @@ def main():
     '''
 
     # 信頼度スコアを保存するリスト
-    confidence_scores = []
+    confidence = []
+    angles=[]
 
     # ウィンドウ作成
     cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
@@ -249,10 +288,14 @@ def main():
         full_body_score=0
 
         while True:
+
             ret, frame = cap.read()
+
             if not ret:
                 break
+
             frame_idx += 1
+
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             roi_frame = frame
             roi_rgb = rgb_frame
@@ -264,7 +307,7 @@ def main():
                 bbox_w = current_bbox[2] - current_bbox[0]
                 bbox_h = current_bbox[3] - current_bbox[1]
                 x_margin = bbox_w*2
-                y_margin = bbox_h*2
+                y_margin = bbox_h
                 roi_x1 = int(max(0, cx - bbox_w // 2 - x_margin))
                 roi_y1 = int(max(0, cy - bbox_h // 2 - y_margin))
                 roi_x2 = int(min(width, cx + bbox_w // 2 + x_margin))
@@ -281,13 +324,17 @@ def main():
 
             # バウンディングボックス更新
             if pose_landmarker_result.pose_landmarks:
+
                 # 2人以上あるいは検出無しだった場合はcurrent_bboxはそのまま
                 if len(pose_landmarker_result.pose_landmarks) < 1 or len(pose_landmarker_result.pose_landmarks) > 1:
                     current_bbox = current_bbox
-                    confidence_scores.append((frame_idx / fps, 0))
+                    confidence.append((frame_idx / fps, 0))
+                    angles.append((frame_idx/fps, 0))
+                    print('角度0')
 
                 # ただ1人のみ検出された場合はcurrent_bboxを更新
                 else:
+
                     detected_bbox = get_bbox_from_landmarks(pose_landmarker_result.pose_landmarks[0], roi_frame.shape[1], roi_frame.shape[0])
                     # ROI→元画像座標に変換
                     if roi_coords:
@@ -305,7 +352,7 @@ def main():
                         
                         full_body_score = calculate_full_body_visibility(pose_landmarker_result.pose_world_landmarks[0])
 
-                    confidence_scores.append((frame_idx / fps, full_body_score))
+                    confidence.append((frame_idx / fps, full_body_score))
             
                     # 骨格描画（元のannotated_frameに描画）
                     annotated_frame = frame.copy()
@@ -342,9 +389,14 @@ def main():
                                     cv2.line(annotated_frame, (sx, sy), (ex, ey), (255, 0, 0), 2)
 
                     for marks in pose_landmarker_result.pose_world_landmarks:
-                        parallel = isParallel(marks)
+
+                        parallel, angle = isParallel(marks)
+
+                    angles.append((frame_idx / fps, angle))
+                    print(f'角度{angle}')
                     
                     if not parallel:
+
                         notParallel+=1
 
                 # ROI以外を黒く塗りつぶす
@@ -360,17 +412,17 @@ def main():
 
             # 結果を表示
             cv2.imshow('Pose Detection', annotated_frame)
-            out.write(annotated_frame)
+            #out.write(annotated_frame)
+
             if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
                 break
     cap.release()
     cv2.destroyAllWindows()
 
-    '''
-    # --- 追加統計処理 ---
+    # --- 統計処理 ---
 
     # bbox検出成功のフレーム数
-    total_frames = len(confidence)
+    total_frames = frame_idx
     exit_score_frames = [score for t, score in confidence if score > 0.0]
     num_exit_score_frames = len(exit_score_frames)
     exit_score_percent = (num_exit_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
@@ -396,18 +448,17 @@ def main():
     positive_scores = [score for t, score in confidence if score > 0.0]
     avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
 
+    print('Blaze Pose')
     print(f'総フレーム数: {total_frames}')
     print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
     print(f'bbox検出無しが0.5秒以上続いた区間の個数: {zero_streaks}')
     print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-    #print(f'パラレルが崩れた回数 : {notParallel}')
 
     detectionResult(confidence)
-    '''
 
-    print(f'総フレーム数: {frame_idx}')
-    print(f'パラレルが崩れた回数 : {notParallel}')
-    print(f'角度計算はしてるのか : {confirm}')
+    #print(f'パラレルが崩れた回数 : {notParallel}')
+    #print(f'角度計算はしてるのか : {confirm}')
+    angleTable(angles)
 
 if __name__ == '__main__':
     main()

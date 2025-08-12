@@ -5,15 +5,51 @@ import matplotlib.pyplot as plt
 
 confirm=0
 
+# 角度表示関数
+def angleTable(angles):
+    
+    times = [t for t, a in angles]
+    angle = [a for t, a in angles]
+
+    maxAngle=max(angle)
+    minAngle=min(angle)
+
+    '''
+    # 通常プロット
+    plt.figure(figsize=(10, 5))
+    plt.plot(times, angle, marker='o', linestyle='-')
+    plt.ylim(minAngle, maxAngle)
+    plt.xlabel('time(second)')
+    plt.ylabel('angle')
+    plt.title('angle per Frame(YOLO)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('yolo-roi-angle.png')
+    plt.close()
+    '''
+
+    # 時間軸反転プロット
+    max_time = max(times)
+    reversed_times = [max_time - t for t in times]
+    plt.figure(figsize=(10, 5))
+    plt.plot(reversed_times, angle, marker='o', linestyle='-')
+    plt.ylim(minAngle, maxAngle)
+    plt.xlabel('time(second)')
+    plt.ylabel('angle')
+    plt.title('angle per Frame (YOLO)')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('YOLO-roi-angle-reversed.png')
+    plt.close()
+
 # bbox検出結果表示関数
 def detectionResult(confidence):
     
-    '''
     # 通常プロット
     times = [t for t, s in confidence]
     scores = [s for t, s in confidence]
 
-
+    '''
     # 通常プロット
     plt.figure(figsize=(10, 5))
     plt.plot(times, scores, marker='o', linestyle='-')
@@ -23,9 +59,9 @@ def detectionResult(confidence):
     plt.title('Confidence Score per Frame(YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-roi-result-usual.png')
+    plt.savefig('yolo-roi-bbox.png')
     plt.close()
-    
+    '''
 
     # 時間軸反転プロット
     max_time = max(times)
@@ -38,11 +74,11 @@ def detectionResult(confidence):
     plt.title('Confidence Score per Frame (YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('YOLO-roi-result-reversed.png')
+    plt.savefig('YOLO-roi-bbox-reversed.png')
     plt.close()
-    '''
 
-def isParallel(keypoints, angle_threshold=20):
+def isParallel(keypoints, threshold=20):
+
     global confirm
     
     try:
@@ -57,11 +93,10 @@ def isParallel(keypoints, angle_threshold=20):
         right_leg_vec = right_ankle - right_knee
             
         angle = angle_between(left_leg_vec, right_leg_vec)
-        print(f'角度: {angle}')
         
         confirm += 1
         
-        return angle < angle_threshold
+        return angle < threshold, angle
         
     except (IndexError, TypeError, ValueError) as e:
         print(f"isParallel関数でエラー: {e}")
@@ -169,8 +204,11 @@ if ret:
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
 confidence=[]
+angles=[]
 
 notParallel=0
+
+frame_idx=0
 
 #フレーム読み込み開始
 while True:
@@ -179,6 +217,8 @@ while True:
     if not ret:
         print("動画の再生が終了しました。")
         break
+
+    frame_idx+=1
 
     try:
         if current_bbox is not None:
@@ -208,11 +248,14 @@ while True:
 
             # 2人以上あるいは検出無しだった場合はcurrent_bboxはそのまま
             if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
+
                 curret_bbox = current_bbox
 
-            # ただ1人のみ検出された場合はcurrent_bboxを更新
+            # ただ1人のみ検出された場合はcurrent_bboxを更新(ただし、それがターゲットとは限らない)
             else:
+
                 detected_bbox = results[0].boxes[0].xyxy[0].cpu().numpy()
+
                 #ROI内での相対座標 " (0, 0)=ROIの左上 " を元画像での絶対座標に変換 "(0, 0)が画像の左上 "
                 current_bbox = [
                     detected_bbox[0]+roi_x1,
@@ -231,9 +274,7 @@ while True:
                 #検出された1人目のキーポイントを取得
                 keypoints = keypoints_raw[0]
 
-                print(f'検出されたキーポイント数: {len(keypoints)}')
-
-                parallel = isParallel(keypoints)
+                parallel, angle = isParallel(keypoints)
                 
                 # パラレルが崩れたらnotParallelをカウントしROI領域を青色で塗りつぶす
                 if not parallel:
@@ -277,11 +318,15 @@ while True:
 
     if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
         score=0
-
+        angle=0
+        
     else:
         score = float(results[0].boxes.conf[0].cpu().numpy())
 
+    print(f'角度{angle}')
+          
     confidence.append((time, score))
+    angles.append((time, angle))
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
@@ -292,11 +337,10 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
-'''
-# --- 追加統計処理 ---
+# --- 統計処理 ---
 
 # bbox検出成功のフレーム数
-total_frames = len(confidence)
+total_frames = frame_idx
 exit_score_frames = [score for t, score in confidence if score > 0.0]
 num_exit_score_frames = len(exit_score_frames)
 exit_score_percent = (num_exit_score_frames / total_frames) * 100 if total_frames > 0 else 0.0
@@ -322,17 +366,17 @@ if streak_length >= judge:
 positive_scores = [score for t, score in confidence if score > 0.0]
 avg_positive_score = np.mean(positive_scores) if positive_scores else 0.0
 
+print('YOLO')
 print(f'総フレーム数: {total_frames}')
 print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
 print(f'bbox検出無しが0.5秒以上続いた区間の個数: {zero_streaks}')
 print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-#print(f'パラレルが崩れた回数 : {notParallel}')
 
 detectionResult(confidence)
-'''
 
-print(f'総フレーム数: {frame_number}')
-print(f'パラレルが崩れた回数 : {notParallel}')
-print(f'角度計算はしてるのか : {confirm}')
+#print(f'パラレルが崩れた回数 : {notParallel}')
+#print(f'角度計算はしてるのか : {confirm}')
+angleTable(angles)
+
 cap.release()
 #out.release()
