@@ -306,14 +306,7 @@ while True:
                 #検出された1人目のキーポイントを取得
                 keypoints = keypoints_raw[0]
 
-                parallel, angle = isParallel(keypoints)
-                
-                # パラレルが崩れたらnotParallelをカウントしROI領域を青色で塗りつぶす
-                if not parallel:
-
-                    notParallel+=1
-
-                    '''
+                '''
                     # ROI領域に薄い赤色のオーバーレイを適用
                     roi_overlay = annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2].copy()
                     roi_overlay[:, :, 0] = 0    # B (青を0にする)
@@ -322,7 +315,7 @@ while True:
                     # 元のフレームと赤色オーバーレイをブレンド（透明度0.3で薄い赤色）
                     annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2] = cv2.addWeighted(
                         annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2], 0.7, roi_overlay, 0.3, 0)
-                    '''
+                '''
 
                 # ROI以外を黒く塗りつぶす
                 annotated_frame = cv2.copyMakeBorder(
@@ -351,13 +344,14 @@ while True:
     if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
 
         score=None
+
         angle=None
         
     else:
 
         score = float(results[0].boxes.conf[0].cpu().numpy())
 
-    #print(f'角度{angle}')
+        parallel, angle = isParallel(keypoints)
           
     confidence.append((time, score))
     angles.append((time, angle))
@@ -422,6 +416,4 @@ detectionResult(confidence)
 '''
 angleTable(angles)
 
-#print(f'パラレルが崩れた回数 : {notParallel}')
-#print(f'角度計算はしてるのか : {confirm}')
 cap.release()
