@@ -39,7 +39,7 @@ def angleGraph(angles):
     plt.title('Angle per Frame(YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-roi-angle.png')
+    plt.savefig('yolo-angle.png')
     plt.close()
 
 # bbox検出結果表示関数-通常プロット
@@ -78,7 +78,7 @@ def scoreGraph(confidence):
     plt.title('Confidence Score per Frame(YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-roi-bbox.png')
+    plt.savefig('yolo-bbox.png')
     plt.close()
     
 def isParallel(keypoints, threshold=20):
@@ -127,7 +127,7 @@ def angle_between(v1, v2):
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画ファイルを指定
-cap = cv2.VideoCapture(r"E:\\ski\\data\\test.mp4")
+cap = cv2.VideoCapture(r"E:\\ski\\data\\clip.mp4")
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -199,6 +199,7 @@ while True:
 
     if not ret:
         print("動画の再生が終了しました。")
+        print()
         break
 
     frame_idx+=1
@@ -318,13 +319,19 @@ while True:
 
 # bbox検出成功のフレーム数
 total_frames = frame_idx
-exit_score_frames = [score for t, score in confidence]
+exit_score_frames = [score for t, score in confidence if score is not None]
 num_exit_score_frames = len(exit_score_frames)
-exit_score_percent = (num_exit_score_frames / total_frames) * 100
+if total_frames > 0:
+    exit_score_percent = (num_exit_score_frames / total_frames) * 100
+else:
+    exit_score_percent = 0.0
 
 # bboxを検出した際の平均信頼度スコア
-positive_scores = [score for t, score in confidence]
-avg_positive_score = np.mean(positive_scores)
+positive_scores = [score for t, score in confidence if score is not None]
+if positive_scores:
+    avg_positive_score = np.mean(positive_scores)
+else:
+    avg_positive_score = 0.0
 
 # bbox検出無しが0.5秒以上続いた区間の個数
 zero_streaks = 0
@@ -332,7 +339,7 @@ streak_length = 0
 judge=fps/2
 
 for t, score in confidence:
-    if score == 0.0:
+    if score is None:
         streak_length += 1
     else:
         if streak_length >= judge:  # 1秒以上

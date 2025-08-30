@@ -49,7 +49,7 @@ def angleGraph(angles):
     plt.title('Angle per Frame(BlazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-roi-angle-reversed.png')
+    plt.savefig('blaze-reversed-angle.png')
     plt.close()
 
 # bbox検出結果表示関数-時間軸反転プロット
@@ -98,7 +98,7 @@ def scoreGraph(confidence):
     plt.title('Confidence Score per Frame(BlazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-roi-bbox-reversed.png')
+    plt.savefig('blaze-reversed-bbox.png')
     plt.close()
 
 def isParallel(keypoints, angle_threshold=20):
@@ -380,9 +380,15 @@ def main():
             ret, frame = cap.read()
 
             if not ret:
+                print("動画の再生が終了しました。")
+                print()
                 break
 
             frame_idx += 1
+
+            
+            # annotated_frameを初期化
+            annotated_frame = frame.copy()
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             roi_frame = frame
@@ -429,8 +435,6 @@ def main():
                         detected_bbox[3] + roi_coords[1]
                     ]
             
-                    # 骨格描画（元のannotated_frameに描画）
-                    annotated_frame = frame.copy()
                     annotated_frame = draw_skeleton(annotated_frame, pose_landmarker_result, roi_coords, roi_frame, width, height)
 
                 # ROI以外を黒く塗りつぶす
@@ -475,21 +479,27 @@ def main():
     
     # bbox検出成功のフレーム数
     total_frames = frame_idx
-    exit_score_frames = [score for t, score in confidence]
+    exit_score_frames = [score for t, score in confidence if score is not None]
     num_exit_score_frames = len(exit_score_frames)
-    exit_score_percent = (num_exit_score_frames / total_frames) * 100
+    if total_frames > 0:
+        exit_score_percent = (num_exit_score_frames / total_frames) * 100
+    else:
+        exit_score_percent = 0.0
 
     # bboxを検出した際の平均信頼度スコア
-    positive_scores = [score for t, score in confidence]
-    avg_positive_score = np.mean(positive_scores)
-
+    positive_scores = [score for t, score in confidence if score is not None]
+    if positive_scores:
+        avg_positive_score = np.mean(positive_scores)
+    else:
+        avg_positive_score = 0.0
+        
     # bbox検出無しが0.5秒以上続いた区間の個数
     zero_streaks = 0
     streak_length = 0
     judge=fps/2
 
     for t, score in confidence:
-        if score == 0.0:
+        if score is None:
             streak_length += 1
         else:
             if streak_length >= judge:  # 1秒以上
@@ -504,7 +514,7 @@ def main():
     failOfConf = sum(1 for t, score in confidence if score is None)
     failOfAngle = sum(1 for t, angle in angles if angle is None)
 
-    print('YOLO')
+    print('Blaze Pose')
     print(f'総フレーム数: {total_frames}')
     print()
     print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
@@ -521,3 +531,6 @@ def main():
     angleGraph(angles)
     
     cap.release()
+
+if __name__ == "__main__":
+    main()
