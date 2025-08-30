@@ -6,7 +6,7 @@ import io
 from PIL import Image
 
 # 角度表示関数-時間軸反転プロット
-def angleTable(angles):
+def angleGraph(angles):
     
     sub_times = [t for t, a in angles]
     sub_angle = [a for t, a in angles]
@@ -53,7 +53,7 @@ def angleTable(angles):
     plt.close()
 
 # bbox検出結果表示関数-時間軸反転プロット
-def detectionResult(confidence):
+def scoreGraph(confidence):
 
     sub_times = [t for t, s in confidence]
     sub_scores = [s for t, s in confidence]
@@ -158,42 +158,65 @@ def calculate_full_body_visibility(landmarks):
         return np.mean(visibility_scores)
     else:
         return 0.0
-
-# 信頼度スコアのグラフを作成する関数
-def detectionResult(confidence_data):
-
-    times = [t for t, s in confidence_data]
-    scores = [s for t, s in confidence_data]
     
-    '''
-    # 通常プロット
-    plt.figure(figsize=(10, 5))
-    plt.plot(times, scores, marker='o', linestyle='-')
-    plt.ylim(0, 1)
-    plt.xlabel('time(second)')
-    plt.ylabel('confidence score')
-    plt.title('Confidence Score per Frame (blazePose)')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig('blaze-roi-bbox.png')
-    plt.close()
-    '''
+def draw_skeleton(annotated_frame, pose_landmarker_result, roi_coords=None, roi_frame=None, width=None, height=None):
+    """
+    骨格を描画する関数
+    
+    Args:
+        annotated_frame: 描画対象のフレーム
+        pose_landmarker_result: 姿勢推定結果
+        roi_coords: ROI座標 (x, y)
+        roi_frame: ROIフレーム
+        width: 元のフレーム幅
+        height: 元のフレーム高さ
+    
+    Returns:
+        annotated_frame: 骨格が描画されたフレーム
+    """
+    if pose_landmarker_result.pose_landmarks:
+        for pose_landmarks in pose_landmarker_result.pose_landmarks:
+            # 各ランドマークを描画
+            for i, landmark in enumerate(pose_landmarks):
+                x = int(landmark.x * (roi_frame.shape[1] if roi_coords else width))
+                y = int(landmark.y * (roi_frame.shape[0] if roi_coords else height))
+                if roi_coords:
+                    x += roi_coords[0]
+                    y += roi_coords[1]
+                cv2.circle(annotated_frame, (x, y), 3, (0, 255, 0), -1)
+            
+            # 骨格の接続線を描画
+            connections = [
+                (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),
+                (11, 23), (12, 24), (23, 24),
+                (23, 25), (25, 27), (27, 29), (29, 31),
+                (24, 26), (26, 28), (28, 30), (30, 32),
+                (15, 17), (15, 19), (15, 21), (17, 19), (19, 21),
+                (16, 18), (16, 20), (16, 22), (18, 20), (20, 22)
+            ]
+            
+            for connection in connections:
+                start_idx, end_idx = connection
+                if start_idx < len(pose_landmarks) and end_idx < len(pose_landmarks):
+                    start_point = pose_landmarks[start_idx]
+                    end_point = pose_landmarks[end_idx]
+                    
+                    sx = int(start_point.x * (roi_frame.shape[1] if roi_coords else width))
+                    sy = int(start_point.y * (roi_frame.shape[0] if roi_coords else height))
+                    ex = int(end_point.x * (roi_frame.shape[1] if roi_coords else width))
+                    ey = int(end_point.y * (roi_frame.shape[0] if roi_coords else height))
+                    
+                    if roi_coords:
+                        sx += roi_coords[0]
+                        sy += roi_coords[1]
+                        ex += roi_coords[0]
+                        ey += roi_coords[1]
+                    
+                    cv2.line(annotated_frame, (sx, sy), (ex, ey), (255, 0, 0), 2)
+    
+    return annotated_frame
 
-    # 時間軸反転プロット
-    max_time = max(times)
-    reversed_times = [max_time - t for t in times]
-    plt.figure(figsize=(10, 5))
-    plt.plot(reversed_times, scores, marker='o', linestyle='-')
-    plt.ylim(0, 1)
-    plt.xlabel('time(second, reversed)')
-    plt.ylabel('confidence score')
-    plt.title('Confidence Score per Frame (blazePose)')
-    plt.grid(True)
-    plt.tight_layout()
-    plt.savefig('blaze-roi-bbox-reversed.png')
-    plt.close()
-
-# 検出結果の描画
+# 3D描画に使うかも
 def plot_world_landmarks(
     plt,
     ax,
@@ -408,37 +431,7 @@ def main():
             
                     # 骨格描画（元のannotated_frameに描画）
                     annotated_frame = frame.copy()
-                    if pose_landmarker_result.pose_landmarks:
-                        for pose_landmarks in pose_landmarker_result.pose_landmarks:
-                            for i, landmark in enumerate(pose_landmarks):
-                                x = int(landmark.x * (roi_frame.shape[1] if roi_coords else width))
-                                y = int(landmark.y * (roi_frame.shape[0] if roi_coords else height))
-                                if roi_coords:
-                                    x += roi_coords[0]
-                                    y += roi_coords[1]
-                                cv2.circle(annotated_frame, (x, y), 3, (0, 255, 0), -1)
-                            connections = [
-                                (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),
-                                (11, 23), (12, 24), (23, 24),
-                                (23, 25), (25, 27), (27, 29), (29, 31),
-                                (24, 26), (26, 28), (28, 30), (30, 32),(15, 17), (15, 19), (15, 21), (17, 19), (19, 21),
-                                (16, 18), (16, 20), (16, 22), (18, 20), (20, 22)
-                            ]
-                            for connection in connections:
-                                start_idx, end_idx = connection
-                                if start_idx < len(pose_landmarks) and end_idx < len(pose_landmarks):
-                                    start_point = pose_landmarks[start_idx]
-                                    end_point = pose_landmarks[end_idx]
-                                    sx = int(start_point.x * (roi_frame.shape[1] if roi_coords else width))
-                                    sy = int(start_point.y * (roi_frame.shape[0] if roi_coords else height))
-                                    ex = int(end_point.x * (roi_frame.shape[1] if roi_coords else width))
-                                    ey = int(end_point.y * (roi_frame.shape[0] if roi_coords else height))
-                                    if roi_coords:
-                                        sx += roi_coords[0]
-                                        sy += roi_coords[1]
-                                        ex += roi_coords[0]
-                                        ey += roi_coords[1]
-                                    cv2.line(annotated_frame, (sx, sy), (ex, ey), (255, 0, 0), 2)
+                    annotated_frame = draw_skeleton(annotated_frame, pose_landmarker_result, roi_coords, roi_frame, width, height)
 
                 # ROI以外を黒く塗りつぶす
                 if roi_coords:
@@ -479,7 +472,7 @@ def main():
     cv2.destroyAllWindows()
 
     # 統計処理
-    '''
+    
     # bbox検出成功のフレーム数
     total_frames = frame_idx
     exit_score_frames = [score for t, score in confidence]
@@ -524,10 +517,7 @@ def main():
     print()
     print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
 
-    detectionResult(confidence)
-    angleTable(angles)
-    '''
+    scoreGraph(confidence)
+    angleGraph(angles)
     
-    #print(f'パラレルが崩れた回数 : {notParallel}')
-    #print(f'角度計算はしてるのか : {confirm}')
     cap.release()

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # 角度表示関数-時間軸反転プロット
-def angleTable(angles):
+def angleGraph(angles):
     
     sub_times = [t for t, a in angles]
     sub_angle = [a for t, a in angles]
@@ -51,7 +51,7 @@ def angleTable(angles):
     plt.close()
 
 # bbox検出結果表示関数-時間軸反転プロット
-def detectionResult(confidence):
+def scoreGraph(confidence):
 
     sub_times = [t for t, s in confidence]
     sub_scores = [s for t, s in confidence]
@@ -152,13 +152,13 @@ if not cap.isOpened():
 
     exit()
 
-# 動画の情報を取得
+# 動画のfpsを取得
 fps = cap.get(cv2.CAP_PROP_FPS)
 
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter(r"E:\\ski\\data\\previous.mp4", fourcc, fps, (width, height))
+#out = cv2.VideoWriter(r"E:\\ski\\data\\previous.mp4", fourcc, fps, (width, height))
 
 # 逆再生動画を保存するための設定
 out = cv2.VideoWriter(r"E:\\ski\\data\\reversed.mp4", fourcc, fps, (width, height))
@@ -365,7 +365,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
-'''
 # 統計処理
 
 # bbox検出成功のフレーム数
@@ -412,8 +411,7 @@ print(f'bbox検出失敗(2人以上、あるいは検出無し)のフレーム�
 print()
 print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
 
-detectionResult(confidence)
-'''
-angleTable(angles)
+scoreGraph(confidence)
+angleGraph(angles)
 
 cap.release()

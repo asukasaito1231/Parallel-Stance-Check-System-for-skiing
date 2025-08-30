@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # 角度表示関数-通常プロット
-def angleTable(angles):
+def angleGraph(angles):
     
     times = [t for t, a in angles]
     angle = [a for t, a in angles]
@@ -43,7 +43,7 @@ def angleTable(angles):
     plt.close()
 
 # bbox検出結果表示関数-通常プロット
-def detectionResult(confidence):
+def scoreGraph(confidence):
 
     times = [t for t, s in confidence]
     scores = [s for t, s in confidence]
@@ -134,8 +134,13 @@ if not cap.isOpened():
 
     exit()
 
-# 動画の情報を取得
+# 動画のfpsを取得
 fps = cap.get(cv2.CAP_PROP_FPS)
+
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#out = cv2.VideoWriter(r"E:\\ski\\data\\previous.mp4", fourcc, fps, (width, height))
 
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
@@ -151,9 +156,6 @@ current_bbox = None
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
-
-# フレームの高さと幅を取得
-height, width, _ = first_frame.shape
 
 if ret:
     try:
@@ -312,7 +314,6 @@ while True:
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
-'''
 # 統計処理
 
 # bbox検出成功のフレーム数
@@ -359,8 +360,7 @@ print(f'bbox検出失敗(2人以上、あるいは検出無し)のフレーム�
 print()
 print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
 
-detectionResult(confidence)
-angleTable(angles)
-'''
+scoreGraph(confidence)
+angleGraph(angles)
 
 cap.release()
