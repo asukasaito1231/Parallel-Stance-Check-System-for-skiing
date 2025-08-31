@@ -41,7 +41,7 @@ def angleGraph(angles):
     plt.title('Angle per Frame(BlazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-angle.png')
+    plt.savefig('blaze-angle-back4.png')
     plt.close()
 
 # bbox検出結果グラフ表示関数-通常プロット
@@ -80,7 +80,7 @@ def scoreGraph(confidence):
     plt.title('Confidence Score per Frame(BlazePose)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('blaze-bbox.png')
+    plt.savefig('blaze-bbox-back4.png')
     plt.close()
 
 def isParallel(keypoints, angle_threshold=20):
@@ -298,12 +298,16 @@ def main():
         num_poses=1)
 
     # 動画ファイルの読み込み
-    cap = cv2.VideoCapture(r"E:\\ski\\data\\btest.mp4")
+    cap = cv2.VideoCapture(r"E:\\ski\\back\\back4.mp4")
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
+
+    # 動画の回転情報を取得
+    rotation = cap.get(cv2.CAP_PROP_ORIENTATION_META)
+
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    #out = cv2.VideoWriter('blaze.mp4', fourcc, fps, (width, height)
+    out = cv2.VideoWriter(r"E:\\ski\\back\\back4-blaze.mp4", fourcc, fps, (width, height))
 
     # 信頼度スコアを保存するリスト
     confidence = []
@@ -322,15 +326,26 @@ def main():
         if not ret:
             print('動画が読み込めません')
             return
+        '''
+        if ret:
+            if rotation == 90:
+                first_frame = cv2.rotate(first_frame, cv2.ROTATE_90_CLOCKWISE)
+            elif rotation == 180:
+                first_frame = cv2.rotate(first_frame, cv2.ROTATE_180)
+            elif rotation == 270:
+                first_frame = cv2.rotate(first_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        '''
         rgb_first = cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(mp.ImageFormat.SRGB, rgb_first)
         pose_landmarker_result = landmarker.detect(mp_image)
-        if pose_landmarker_result.pose_landmarks:
+        if len(pose_landmarker_result.pose_landmarks) == 1:
+
             first_person_bbox = get_bbox_from_landmarks(pose_landmarker_result.pose_landmarks[0], width, height)
             current_bbox = first_person_bbox
             print('最初のフレームで人物検出成功')
+            
         else:
-            print('最初のフレームで人物が検出されませんでした')
+            print('最初のフレームで人物が検出されませんでした(2人以上の検出、あるいは検出無し)')
             current_bbox = None
             exit()
 
@@ -347,6 +362,15 @@ def main():
                 print()
                 break
 
+            '''
+            if ret:
+                if rotation == 90:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                elif rotation == 180:
+                    frame = cv2.rotate(frame, cv2.ROTATE_180)
+                elif rotation == 270:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            '''
             frame_idx += 1
 
             # annotated_frameを初期化
@@ -356,18 +380,24 @@ def main():
             roi_frame = frame
             roi_rgb = rgb_frame
             roi_coords = None
+
             # current_bboxがある場合はROIで検出
             if current_bbox is not None:
+
                 cx = int((current_bbox[0] + current_bbox[2]) / 2)
                 cy = int((current_bbox[1] + current_bbox[3]) / 2)
+
                 bbox_w = current_bbox[2] - current_bbox[0]
                 bbox_h = current_bbox[3] - current_bbox[1]
-                x_margin = bbox_w*2
-                y_margin = bbox_h
+
+                x_margin = bbox_w/2
+                y_margin = bbox_h/5
+
                 roi_x1 = int(max(0, cx - bbox_w // 2 - x_margin))
                 roi_y1 = int(max(0, cy - bbox_h // 2 - y_margin))
                 roi_x2 = int(min(width, cx + bbox_w // 2 + x_margin))
                 roi_y2 = int(min(height, cy + bbox_h // 2 + y_margin))
+
                 roi_frame = frame[roi_y1:roi_y2, roi_x1:roi_x2]
                 roi_rgb = rgb_frame[roi_y1:roi_y2, roi_x1:roi_x2]
                 roi_coords = (roi_x1, roi_y1, roi_x2, roi_y2)
@@ -383,7 +413,18 @@ def main():
 
                 # 2人以上あるいは検出無しだった場合はcurrent_bboxはそのまま
                 if len(pose_landmarker_result.pose_landmarks) < 1 or len(pose_landmarker_result.pose_landmarks) > 1:
+
                     current_bbox = current_bbox
+
+                    # ROI以外を黒く塗りつぶした画像をannotated_frameに格納
+                    annotated_frame = cv2.copyMakeBorder(
+                        roi_frame,
+                        roi_y1, height - roi_y2,
+                        roi_x1, width - roi_x2,
+                        cv2.BORDER_CONSTANT,
+                        value=[0, 0, 0]
+                        )
+                    
 
                 # ただ1人のみ検出された場合はcurrent_bboxを更新
                 else:
@@ -397,19 +438,17 @@ def main():
                         detected_bbox[2] + roi_coords[0],
                         detected_bbox[3] + roi_coords[1]
                     ]
-            
+
                     annotated_frame = draw_skeleton(annotated_frame, pose_landmarker_result, roi_coords, roi_frame, width, height)
 
-                # ROI以外を黒く塗りつぶす
-                if roi_coords:
-                    roi_x1, roi_y1, roi_x2, roi_y2 = roi_coords
+                    # ROI以外を黒く塗りつぶす
                     annotated_frame = cv2.copyMakeBorder(
-                        annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2],
+                        annotated_frame,
                         roi_y1, height - roi_y2,
                         roi_x1, width - roi_x2,
                         cv2.BORDER_CONSTANT,
                         value=[0, 0, 0]
-                    )
+                        )
 
             time = frame_idx / fps
 
@@ -477,7 +516,8 @@ def main():
     failOfConf = sum(1 for t, score in confidence if score is None)
     failOfAngle = sum(1 for t, angle in angles if angle is None)
 
-    print('Blaze Pose')
+    print('【Blaze Pose】-back4.mp4')
+    print()
     print(f'総フレーム数: {total_frames}')
     print()
     print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')

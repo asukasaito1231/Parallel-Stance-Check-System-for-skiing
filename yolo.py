@@ -39,7 +39,7 @@ def angleGraph(angles):
     plt.title('Angle per Frame(YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-angle.png')
+    plt.savefig('yolo-angle-far1.png')
     plt.close()
 
 # bbox検出結果表示関数-通常プロット
@@ -78,7 +78,7 @@ def scoreGraph(confidence):
     plt.title('Confidence Score per Frame(YOLO)')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-bbox.png')
+    plt.savefig('yolo-bbox-far1.png')
     plt.close()
     
 def isParallel(keypoints, threshold=20):
@@ -127,7 +127,7 @@ def angle_between(v1, v2):
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画ファイルを指定
-cap = cv2.VideoCapture(r"E:\\ski\\data\\clip.mp4")
+cap = cv2.VideoCapture(r"E:\\ski\\back\\back4.mp4")
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -137,10 +137,13 @@ if not cap.isOpened():
 # 動画のfpsを取得
 fps = cap.get(cv2.CAP_PROP_FPS)
 
+# 動画の回転情報を取得
+rotation = cap.get(cv2.CAP_PROP_ORIENTATION_META)
+
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-#out = cv2.VideoWriter(r"E:\\ski\\data\\previous.mp4", fourcc, fps, (width, height))
+out = cv2.VideoWriter(r"E:\\ski\\back\\back4-yolo.mp4", fourcc, fps, (width, height))
 
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
@@ -156,13 +159,21 @@ current_bbox = None
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
-
+'''
+if ret:
+    if rotation == 90:
+        first_frame = cv2.rotate(first_frame, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation == 180:
+        first_frame = cv2.rotate(first_frame, cv2.ROTATE_180)
+    elif rotation == 270:
+        first_frame = cv2.rotate(first_frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+'''
 if ret:
     try:
         # YOLOでポーズ推定を実行
         first_results = model(first_frame)
 
-        if len(first_results[0].boxes) > 0:
+        if len(first_results[0].boxes) == 1:
 
             # バウンディングボックスの座標を保存
             first_person_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
@@ -176,7 +187,7 @@ if ret:
             print("最初のフレームでの人物発見成功")
 
         else:
-            print("最初のフレームで人物が検出されませんでした")
+            print("最初のフレームで人物が検出されませんでした(2人以上の検出、あるいは検出無し)")
             exit()
 
     except Exception as e:
@@ -201,6 +212,16 @@ while True:
         print("動画の再生が終了しました。")
         print()
         break
+
+    '''
+    if ret:
+        if rotation == 90:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif rotation == 180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        elif rotation == 270:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    '''
 
     frame_idx+=1
 
@@ -234,6 +255,16 @@ while True:
             if len(results[0].boxes) < 1 or len(results[0].boxes) > 1:
 
                 curret_bbox = current_bbox
+                
+                # ROI以外を黒く塗りつぶした画像をannotated_frameに格納
+                annotated_frame = cv2.copyMakeBorder(
+                    roi,
+                    roi_y1, height - roi_y2,
+                    roi_x1, width - roi_x2,
+                    cv2.BORDER_CONSTANT,
+                    value=[0, 0, 0]
+                )
+                
 
             # ただ1人のみ検出された場合はcurrent_bboxを更新(ただし、それがターゲットとは限らない)
             else:
@@ -269,6 +300,7 @@ while True:
                         annotated_frame[roi_y1:roi_y2, roi_x1:roi_x2], 0.7, roi_overlay, 0.3, 0)
                 '''
 
+                
                 # ROI以外を黒く塗りつぶす
                 annotated_frame = cv2.copyMakeBorder(
                     annotated_frame,
@@ -278,6 +310,7 @@ while True:
                     value=[0, 0, 0]
                     )
 
+                
         # current_bboxがnoneの場合
         else:
           # YOLOでフレーム全体サイズのままポーズ推定を実行
@@ -309,7 +342,7 @@ while True:
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
 
-    #out.write(annotated_frame)
+    out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
@@ -354,7 +387,8 @@ if streak_length >= judge:
 failOfConf = sum(1 for t, score in confidence if score is None)
 failOfAngle = sum(1 for t, angle in angles if angle is None)
 
-print('YOLO')
+print('【YOLO】-back4.mp4')
+print()
 print(f'総フレーム数: {total_frames}')
 print()
 print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
