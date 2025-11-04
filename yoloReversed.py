@@ -226,9 +226,9 @@ def set_first_ROI(first_frame, first_position, width, height):
 
 # YOLOモデルの読み込み
 object_detection_model = YOLO('yolo12n.pt')
-detect_skeleton_model=YOLO('yolo11x-pose.pt')
+detect_skeleton_model=YOLO('yolo11n-pose.pt')
 
-cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far26.mp4")
+cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2.mp4")
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -240,11 +240,10 @@ video_length=total_frames/fps
 
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
-#out = cv2.VideoWriter("slide.avi", fourcc, fps, (width, height))
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
 # 逆再生動画を保存するための設定
-r_out = cv2.VideoWriter(r"D:\\DCIM\\MOVIE\\far\\far26-reversed.mp4", fourcc, fps, (width, height))
+r_out = cv2.VideoWriter(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4", fourcc, fps, (width, height))
 
 # フレームを配列に保存
 frames = []
@@ -264,14 +263,20 @@ print('逆再生処理完了')
 cap.release()
 r_out.release()
 
-cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far26-reversed.mp4")
+cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4")
 
 if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
     exit()
 
-# ウィンドウを作成
+#fourcc = cv2.VideoWriter_fourcc(*'XVID')
+#out = cv2.VideoWriter("slide.avi", fourcc, fps, (width, height))
+
+import ctypes
 cv2.namedWindow('Ski Parallel Stance Check', cv2.WINDOW_NORMAL)
+screen_w = ctypes.windll.user32.GetSystemMetrics(0)
+screen_h = ctypes.windll.user32.GetSystemMetrics(1)
+cv2.resizeWindow('Ski Parallel Stance Check', screen_w, screen_h)
 
 # 現在のバウンディングボックスを保存
 current_bbox = None
@@ -282,7 +287,7 @@ ret, first_frame = cap.read()
 # フレームの高さと幅を取得
 height, width, _ = first_frame.shape
 
-first_position="under_right"
+first_position="center"
 
 # (x1, y1)は左上、(x2, y2)が右下
 first_ROI, first_x1, first_y1, first_x2, first_y2 = set_first_ROI(first_frame, first_position, width, height)
@@ -324,6 +329,7 @@ angles=[]
 
 total_frames=0
 img_save=0
+i=1;
 
 #フレーム読み込み開始
 while True:
@@ -354,11 +360,12 @@ while True:
             x_margin=bbox_width
             y_margin=bbox_height
 
+            '''
             # 動画後半はスキーヤーが小さくなることを想定して余白も小さく
             if(time > (video_length/2)):
                 x_margin=bbox_width*0.75
                 y_margin=bbox_height*0.75
-
+'''
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             bbox_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
             bbox_roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
@@ -373,13 +380,13 @@ while True:
             # 2人以上あるいは検出無しだった場合はcurrent_bboxはそのまま
             if len(bbox_results[0].boxes) < 1 or len(bbox_results[0].boxes) > 1:
 
-                # ROI以外を黒く塗りつぶした画像をannotated_frameに格納
+                # ROI以外を白く塗りつぶした画像をannotated_frameに格納
                 annotated_frame = cv2.copyMakeBorder(
                     bbox_roi,
                     bbox_roi_y1, height - bbox_roi_y2,
                     bbox_roi_x1, width - bbox_roi_x2,
                     cv2.BORDER_CONSTANT,
-                    value=[0, 0, 0]
+                    value=[255, 255, 255]
                 )
 
                 score=None
@@ -412,11 +419,12 @@ while True:
                 x_margin=bbox_width
                 y_margin=bbox_height
 
+                '''
                 # 動画後半はスキーヤーが小さくなることを想定して余白を半分に
                 if(time > (video_length/2)):
                     x_margin=bbox_width*0.75
                     y_margin=bbox_height*0.75
-
+                '''
                 # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                 skeleton_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
                 skeleton_roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
@@ -443,15 +451,37 @@ while True:
                 score = float(skeleton_results[0].boxes.conf[0].cpu().numpy())
 
                 angle, parallel = isParallel(keypoints)
-
-                
-                if angle > 15:
-                    # 角度が15度以下の場合は画像を保存
+                '''
+                if angle > 20:
+                    # 角度がabove15度の場合は画像を保存
                     img_save += 1
                     #angleをannotate_frameの右下に記入
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    scale = 1.0
+                    thickness = 2
+                    color = (0, 255, 0) if parallel is not False else (0, 0, 255)  # 平行:緑 / 非平行:赤
+
+                    text = f"Angle: {angle:.1f} deg" if angle is not None else "Angle: N/A"
+                    (text_w, text_h), baseline = cv2.getTextSize(text, font, scale, thickness)
+
+                    margin = 12
+                    x = annotated_frame.shape[1] - text_w - margin
+                    y = annotated_frame.shape[0] - margin
+
+                    # 視認性向上のための背景（半透明風）
+                    bg_pad = 6
+                    cv2.rectangle(
+                        annotated_frame,
+                        (x - bg_pad, y - text_h - bg_pad),
+                        (x + text_w + bg_pad, y + baseline + bg_pad),
+                        (0, 0, 0),
+                        -1
+                    )
+
+                    cv2.putText(annotated_frame, text, (x, y), font, scale, color, thickness, cv2.LINE_AA)
                     filename = f"{img_save}-above15-{angle}度.png"
                     cv2.imwrite(filename, annotated_frame)
-                
+                '''
                 if parallel == False:
                     # フレームを薄い赤で色付けする
                     annotated_frame = cv2.addWeighted(annotated_frame, 0.7, np.full(annotated_frame.shape, (0, 0, 255), dtype=np.uint8), 0.3, 0)
@@ -462,18 +492,18 @@ while True:
                     skeleton_roi_y1, height - skeleton_roi_y2,
                     skeleton_roi_x1, width - skeleton_roi_x2,
                     cv2.BORDER_CONSTANT,
-                    value=[0, 0, 0]
+                    value=[255, 255, 255]
                     )
                     
     except Exception as e:
         print('try文に突入しなかった')
-        # ROI以外を黒く塗りつぶした画像をannotated_frameに格納
+        # ROI以外を白く塗りつぶした画像をannotated_frameに格納
         annotated_frame = cv2.copyMakeBorder(
             bbox_roi,
             bbox_roi_y1, height - bbox_roi_y2,
             bbox_roi_x1, width - bbox_roi_x2,
             cv2.BORDER_CONSTANT,
-            value=[0, 0, 0]
+            value=[255, 255, 255]
             )
         score=None
         angle=None
@@ -487,7 +517,7 @@ while True:
     #out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
-    if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
+    if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
         break
 '''
 # 統計処理
@@ -542,7 +572,7 @@ print()
 #print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
 '''
 #scoreGraph(confidence)
-angleGraph(angles)
+#angleGraph(angles)
 
 cap.release()
 #out.release()
