@@ -1,4 +1,5 @@
 import cv2
+from numpy.core.defchararray import center
 from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
@@ -62,7 +63,7 @@ def angleGraph(angles):
     
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('angle-roi-rewind.png')
+    plt.savefig('YOLO-angle-roi-rewind.png')
     plt.close()
 
 # bbox検出結果グラフ表示関数-時間軸反転プロット
@@ -118,7 +119,7 @@ def scoreGraph(confidence):
     
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('confidence-roi-rewind.png')
+    plt.savefig('YOLO-confidence-roi-rewind.png')
     plt.close()
 
 def isParallel(keypoints, threshold=20):
@@ -126,9 +127,11 @@ def isParallel(keypoints, threshold=20):
     parallel=True
 
     try:
+        '''
         # 腰の座標
         left_hip = keypoints[11][:2]
         right_hip = keypoints[12][:2]
+        '''
         
         # 膝の座標
         left_knee = keypoints[13][:2]
@@ -138,21 +141,26 @@ def isParallel(keypoints, threshold=20):
         left_ankle = keypoints[15][:2]
         right_ankle = keypoints[16][:2]
         
+        '''
         # 太ももベクトル（腰→膝）
         left_thigh_vec = left_knee - left_hip
         right_thigh_vec = right_knee - right_hip
-        
+        '''
         # 脛ベクトル（膝→足首）
         left_shin_vec = left_ankle - left_knee
         right_shin_vec = right_ankle - right_knee
-        
+        '''
         # 太ももの角度計算
         thigh_angle = angle_between(left_thigh_vec, right_thigh_vec)
-        
+        if thigh_angle > 30:
+            return 50, False
+        '''
         # 脛の角度計算
-        shin_angle = angle_between(left_shin_vec, right_shin_vec)
-        
-        angle=(thigh_angle+shin_angle)/2
+        angle = angle_between(left_shin_vec, right_shin_vec)
+        '''
+        if shin_angle > 30:
+            return 50, False
+        '''
 
         if(angle > threshold):
             parallel=False
@@ -178,11 +186,49 @@ def angle_between(v1, v2):
 
     return angle
 
-# YOLOモデルの読み込み
-object_detection_model = YOLO('yolo11n.pt')
-detect_skeleton_model=YOLO('yolo11n-pose.pt')
+def set_first_ROI(first_frame, first_position, width, height):
 
-cap = cv2.VideoCapture(r"E:\\ski\\far\\far1.mp4")
+    # 各5つの初期ポジションに応じてROIを設定
+    if first_position == "top_left":
+        first_x1 = 0
+        first_y1 = 0
+        first_x2 = width // 2
+        first_y2 = height // 2
+        
+    elif first_position == "top_right":
+        first_x1 = width // 2
+        first_y1 = 0
+        first_x2 = width
+        first_y2 = height // 2
+        
+    elif first_position == "under_left":
+        first_x1 = 0
+        first_y1 = height // 2
+        first_x2 = width // 2
+        first_y2 = height
+
+    elif first_position == "under_right":
+        first_x1 = width // 2
+        first_y1 = height // 2
+        first_x2 = width
+        first_y2 = height
+        
+    elif first_position == "center":
+        first_x1 = width // 4
+        first_y1 = height // 4
+        first_x2 = width * 3 // 4
+        first_y2 = height * 3 // 4
+
+    # first_frameを切り取り
+    first_ROI = first_frame[first_y1:first_y2, first_x1:first_x2]
+    
+    return first_ROI, first_x1, first_y1, first_x2, first_y2
+
+# YOLOモデルの読み込み
+object_detection_model = YOLO('yolo12n.pt')
+detect_skeleton_model=YOLO('yolo11x-pose.pt')
+
+cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far26.mp4")
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -194,11 +240,11 @@ video_length=total_frames/fps
 
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-#out = cv2.VideoWriter(r"E:\\ski\\1級検定本番\\ポスター用.mp4", fourcc, fps, (width, height))
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+#out = cv2.VideoWriter("slide.avi", fourcc, fps, (width, height))
 
 # 逆再生動画を保存するための設定
-out = cv2.VideoWriter(r"E:\\ski\\far\\far1-reversed.mp4", fourcc, fps, (width, height))
+r_out = cv2.VideoWriter(r"D:\\DCIM\\MOVIE\\far\\far26-reversed.mp4", fourcc, fps, (width, height))
 
 # フレームを配列に保存
 frames = []
@@ -210,22 +256,22 @@ while True:
 
 # フレームを逆順に保存
 for frame in reversed(frames):
-    out.write(frame)
+    r_out.write(frame)
 
 print('逆再生処理完了')
 
 # リソースを解放
 cap.release()
-out.release()
+r_out.release()
 
-cap = cv2.VideoCapture(r"E:\\ski\\far\\far1-reversed.mp4")
+cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far26-reversed.mp4")
 
 if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
     exit()
 
 # ウィンドウを作成
-cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
+cv2.namedWindow('Ski Parallel Stance Check', cv2.WINDOW_NORMAL)
 
 # 現在のバウンディングボックスを保存
 current_bbox = None
@@ -236,22 +282,35 @@ ret, first_frame = cap.read()
 # フレームの高さと幅を取得
 height, width, _ = first_frame.shape
 
+first_position="under_right"
+
+# (x1, y1)は左上、(x2, y2)が右下
+first_ROI, first_x1, first_y1, first_x2, first_y2 = set_first_ROI(first_frame, first_position, width, height)
+
 if ret:
     try:
-        # YOLOでポーズ推定を実行（人間クラスのみ検出）
-        first_results = object_detection_model(first_frame, classes=[0])
+        # 物体検出を実行（人間のみ検出）
+        first_results = object_detection_model(first_ROI, classes=[0])
 
         if len(first_results[0].boxes)==1:
 
-            # バウンディングボックスの座標を保存
-            current_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
+            # 相対座標→絶対座標の変換、ROIの初期値を設定
+            detected_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
+
+            #ROI内での相対座標 " (0, 0)=ROIの左上 " を全体フレームでの絶対座標に変換 "(0, 0)が全体フレームの左上 "
+            current_bbox = [
+                detected_bbox[0]+first_x1,
+                detected_bbox[1]+first_y1,
+                detected_bbox[2]+first_x1,
+                detected_bbox[3]+first_y1
+                ]
             
             print("最初のフレームでの人物発見成功")
 
         else:
-            print("最初のフレームで人物が検出されませんでした(2人以上の検出、あるいは検出無し)")
+            print("最初のフレームで人物が検出されませんでした")
             exit()
-
+            
     except Exception as e:
         print(f"エラーが発生しました: {e}")
         exit()
@@ -264,6 +323,7 @@ confidence=[]
 angles=[]
 
 total_frames=0
+img_save=0
 
 #フレーム読み込み開始
 while True:
@@ -294,6 +354,11 @@ while True:
             x_margin=bbox_width
             y_margin=bbox_height
 
+            # 動画後半はスキーヤーが小さくなることを想定して余白も小さく
+            if(time > (video_length/2)):
+                x_margin=bbox_width*0.75
+                y_margin=bbox_height*0.75
+
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             bbox_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
             bbox_roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
@@ -307,8 +372,6 @@ while True:
 
             # 2人以上あるいは検出無しだった場合はcurrent_bboxはそのまま
             if len(bbox_results[0].boxes) < 1 or len(bbox_results[0].boxes) > 1:
-
-                curret_bbox = current_bbox
 
                 # ROI以外を黒く塗りつぶした画像をannotated_frameに格納
                 annotated_frame = cv2.copyMakeBorder(
@@ -337,18 +400,28 @@ while True:
                     detected_bbox[3]+bbox_roi_y1
                     ]
 
-                #検出されたbboxの座標を取得
-                bbox_x1, bbox_y1, bbox_x2, bbox_y2 = current_bbox
+                # bboxの中心座標を計算
+                center_x = int((current_bbox[0] + current_bbox[2]) / 2)
+                center_y = int((current_bbox[1] + current_bbox[3]) / 2)
 
-                skeleton_margin = 200
+                # current_bboxの幅と高さを計算
+                bbox_width = current_bbox[2] - current_bbox[0]
+                bbox_height = current_bbox[3] - current_bbox[1]
 
+                #多少余白を持たせることで確実にターゲットを検出 
+                x_margin=bbox_width
+                y_margin=bbox_height
+
+                # 動画後半はスキーヤーが小さくなることを想定して余白を半分に
                 if(time > (video_length/2)):
-                    skeleton_margin=100
+                    x_margin=bbox_width*0.75
+                    y_margin=bbox_height*0.75
 
-                skeleton_roi_x1 = max(0, int(bbox_x1 - (skeleton_margin/2)))
-                skeleton_roi_y1 = max(0, int(bbox_y1 - skeleton_margin))
-                skeleton_roi_x2 = min(width, int(bbox_x2 + (skeleton_margin/2)))
-                skeleton_roi_y2 = min(height, int(bbox_y2 + skeleton_margin))
+                # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
+                skeleton_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
+                skeleton_roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
+                skeleton_roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
+                skeleton_roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
 
                 # 骨格検出用のROI領域を抽出
                 skeleton_roi = frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2]
@@ -367,10 +440,18 @@ while True:
                 #検出された1人目のキーポイントを取得
                 keypoints = keypoints_raw[0]
 
-                score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
+                score = float(skeleton_results[0].boxes.conf[0].cpu().numpy())
 
                 angle, parallel = isParallel(keypoints)
 
+                
+                if angle > 15:
+                    # 角度が15度以下の場合は画像を保存
+                    img_save += 1
+                    #angleをannotate_frameの右下に記入
+                    filename = f"{img_save}-above15-{angle}度.png"
+                    cv2.imwrite(filename, annotated_frame)
+                
                 if parallel == False:
                     # フレームを薄い赤で色付けする
                     annotated_frame = cv2.addWeighted(annotated_frame, 0.7, np.full(annotated_frame.shape, (0, 0, 255), dtype=np.uint8), 0.3, 0)
@@ -383,11 +464,17 @@ while True:
                     cv2.BORDER_CONSTANT,
                     value=[0, 0, 0]
                     )
-
+                    
     except Exception as e:
         print('try文に突入しなかった')
-        bbox_results = object_detection_model(frame, classes=[0])
-        annotated_frame = bbox_results[0].plot()
+        # ROI以外を黒く塗りつぶした画像をannotated_frameに格納
+        annotated_frame = cv2.copyMakeBorder(
+            bbox_roi,
+            bbox_roi_y1, height - bbox_roi_y2,
+            bbox_roi_x1, width - bbox_roi_x2,
+            cv2.BORDER_CONSTANT,
+            value=[0, 0, 0]
+            )
         score=None
         angle=None
 
@@ -395,7 +482,7 @@ while True:
     angles.append((time, angle))
 
     # 結果を表示
-    cv2.imshow('Pose Detection', annotated_frame)
+    cv2.imshow('Ski Parallel Stance Check', annotated_frame)
 
     #out.write(annotated_frame)
 
@@ -440,7 +527,7 @@ if streak_length >= judge:
 failOfConf = sum(1 for t, score in confidence if score is None)
 failOfAngle = sum(1 for t, angle in angles if angle is None)
 
-print('【YOLO】 - far26.mp4')
+print('【YOLO】 - far2.mp4')
 print()
 print(f'総フレーム数: {total_frames}')
 print()
@@ -454,8 +541,9 @@ print(f'bbox検出失敗(2人以上、あるいは検出無し)のフレーム�
 print()
 #print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
 '''
-scoreGraph(confidence)
+#scoreGraph(confidence)
 angleGraph(angles)
 
 cap.release()
-out.release()
+#out.release()
+cv2.destroyAllWindows()
