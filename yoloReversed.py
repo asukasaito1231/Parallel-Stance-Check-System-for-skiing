@@ -1,3 +1,4 @@
+import os
 import cv2
 from numpy.core.defchararray import center
 from ultralytics import YOLO
@@ -237,33 +238,40 @@ if not cap.isOpened():
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 fps = cap.get(cv2.CAP_PROP_FPS)
 video_length=total_frames/fps
-
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-# 逆再生動画を保存するための設定
-r_out = cv2.VideoWriter(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4", fourcc, fps, (width, height))
+# 既に逆再生ファイルがあるなら
+if os.path.exists(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4"):
 
-# フレームを配列に保存
-frames = []
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-    frames.append(frame)
+    cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4")
+    print("既に逆再生ファイルが存在します")
 
-# フレームを逆順に保存
-for frame in reversed(frames):
-    r_out.write(frame)
+# 逆再生ファイルが無いなら作る
+else:
 
-print('逆再生処理完了')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    # 逆再生動画を保存するための設定
+    r_out = cv2.VideoWriter(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4", fourcc, fps, (width, height))
 
-# リソースを解放
-cap.release()
-r_out.release()
+    # フレームを配列に保存
+    frames = []
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frames.append(frame)
 
-cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4")
+    # フレームを逆順に保存
+    for frame in reversed(frames):
+        r_out.write(frame)
+
+    # リソースを解放
+    cap.release()
+    r_out.release()
+
+    cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4")
+    print("逆再生ファイルが存在しないので作りました")
 
 if not cap.isOpened():
     print("Error: 逆再生動画を開けませんでした。")
@@ -283,9 +291,6 @@ current_bbox = None
 
 # 最初のフレームを読み込んで人物を検出
 ret, first_frame = cap.read()
-
-# フレームの高さと幅を取得
-height, width, _ = first_frame.shape
 
 first_position="center"
 
@@ -514,6 +519,32 @@ while True:
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
         break
+
+# 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
+cap = cv2.VideoCapture("slide.avi")
+out = cv2.VideoWriter("slide-temp.avi", fourcc, fps, (width, height))
+
+# フレームを配列に保存
+frames = []
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+    frames.append(frame)
+
+# フレームを逆順に保存
+for frame in reversed(frames):
+    out.write(frame)
+
+print('ユーザに提示する動画を通常再生に戻しました')
+# 元ファイルを上書き
+#os.remove("slide.avi")
+#os.rename("slide-temp.avi", "slide.avi")
+
+# リソースを解放
+cap.release()
+out.release()
+
 '''
 # 統計処理
 # bbox検出成功のフレーム数
