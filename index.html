@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>スキーパラレルチェック</title>
+
+    <style>
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;   /* 横方向の中央寄せ */
+            justify-content: center; /* 縦方向の中央寄せ（オプションでページ中央に） */
+            min-height: 100vh;     /* 画面全体の高さを確保 */
+            font-family: Arial, sans-serif;
+            background-image: url('static/background.png');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        h3 {
+            text-align: center; /* 見出しを中央寄せ */
+            margin-top: 50px;
+            text-shadow: 
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column; /* 縦に並べる */
+            align-items: center;    /* 各要素を中央に */
+            gap: 10px;              /* 各要素の間隔 */
+        }
+
+        input[type="file"], button {
+            padding: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
+        p.error {
+            color: red;
+            font-weight: bold;
+        }
+
+        .top-left-text {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 30px;
+            font-weight: bold;
+            color: #1b5ae1;
+            z-index: 1000;
+            text-shadow: 
+                -2px -2px 0 #000,
+                2px -2px 0 #000,
+                -2px 2px 0 #000,
+                2px 2px 0 #000;
+        }
+
+        .center-image {
+            position: absolute;
+            top: 90%;
+            left: 30%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: auto;
+        }
+
+        .text-next-to-image {
+            position: absolute;
+            top: 105%;
+            left: 50%;
+            transform: translateY(-50%);
+            width: 520px;
+            font-size: 30px;
+            line-height: 3;
+        }
+
+        .three-reason {
+            position: absolute;
+            top: 150%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        .box-container {
+            position: absolute;
+            top: 180%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .box-container::after {
+            content: "";
+            display: block;
+            height: 150px;
+        }
+
+        .box {
+            width: 150px;
+            height: 100px;
+            background-color: #f0f0f0;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+    </style>
+
+</head>
+
+<body>
+
+    <div class="top-left-text">🎿 スキーパラレルチェック 🎿</div>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <input type="file" name="video" accept="video/*" required>
+
+        <button type="submit">パラレルチェック開始</button>
+
+    </form>
+
+    {% if error %}
+
+    <p style="color:red;">{{ error }}</p>
+
+    {% endif %}
+
+    <h3>🔬 このサイトでは、ユーザがアップロードしたスキー滑走動画を解析し、<br>両脛が平行(パラレル)になっているかどうかをチェックします。</h> 
+        
+    <img src="static/logo.png" alt="ロゴ" class="center-image">
+
+    <p class="text-next-to-image">🎯 ある程度パラレルターンができる<br>中級スキーヤーを対象としています。</p>
+
+    <p class="three-reason">⭐ 中級スキーヤーがこのサイトを使うべき3つの理由</p>
+
+    <div class="box-container">
+        <div class="box">ボックス1</div>
+        <div class="box">ボックス2</div>
+        <div class="box">ボックス3</div>
+    </div>
+
+    <!-- <h3>中級スキーヤーがこのサイトを使うべき3つの理由</h3> 
+    
+    <ul>
+        <li>時々起こる瞬間的なミスを発見できます。</li>
+        <li>滑りの序盤・中盤・終盤のどこでミスが起きやすくなるかが分かります。</li>
+        <li>提示した結果を基に技術の改善に繋げることができます。</li>
+
+    </ul> -->
+
+</body>
+
+</html>
