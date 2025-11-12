@@ -519,7 +519,7 @@ while True:
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
         break
-
+'''
 # 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
 cap = cv2.VideoCapture("slide.avi")
 out = cv2.VideoWriter("slide-temp.avi", fourcc, fps, (width, height))
@@ -544,7 +544,7 @@ print('ユーザに提示する動画を通常再生に戻しました')
 # リソースを解放
 cap.release()
 out.release()
-
+'''
 '''
 # 統計処理
 # bbox検出成功のフレーム数
