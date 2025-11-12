@@ -25,7 +25,7 @@ def angleGraph(angles):
     
     # 有効な角度データを青線でプロット
     if valid_times:
-        plt.plot(valid_times, valid_angles, marker='o', linestyle='-')
+        plt.plot(valid_times, valid_angles, marker='o', linestyle='-', color='blue')
     
     # Noneの場合は赤丸で表示（y=0の位置）
     if none_times:
@@ -35,11 +35,11 @@ def angleGraph(angles):
 
     plt.ylim(0, maxAngle)
     plt.xlabel('Time(second)')
-    plt.ylabel('Angle')
-    plt.title('Angle per Frame(YOLO)')
+    plt.ylabel('Angle', fontsize=18)
+    plt.title('Angle per Frame', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-angle-far1.png')
+    plt.savefig('angle中間ポスター.png')
     plt.close()
 
 # bbox検出結果表示関数-通常プロット
@@ -75,10 +75,10 @@ def scoreGraph(confidence):
     plt.ylim(0, maxScore)
     plt.xlabel('Time(second)')
     plt.ylabel('Confidence Score')
-    plt.title('Confidence Score per Frame(YOLO)')
+    plt.title('Confidence Score per Frame')
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig('yolo-bbox-far1.png')
+    plt.savefig('中間ポスターROI適用後.png')
     plt.close()
     
 def isParallel(keypoints, threshold=20):
@@ -127,7 +127,7 @@ def angle_between(v1, v2):
 model = YOLO('yolov8n-pose.pt')  # ポーズ推定用のYOLOv8モデル（より高精度）
 
 # 動画ファイルを指定
-cap = cv2.VideoCapture(r"E:\\ski\\back\\back4.mp4")
+cap = cv2.VideoCapture(r"E:\\ski\\far\\far26-reversed.mp4")
 
 if not cap.isOpened():
     print("Error: カメラまたは動画を開けませんでした。")
@@ -137,13 +137,10 @@ if not cap.isOpened():
 # 動画のfpsを取得
 fps = cap.get(cv2.CAP_PROP_FPS)
 
-# 動画の回転情報を取得
-rotation = cap.get(cv2.CAP_PROP_ORIENTATION_META)
-
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-out = cv2.VideoWriter(r"E:\\ski\\back\\back4-yolo.mp4", fourcc, fps, (width, height))
+#out = cv2.VideoWriter(r"E:\\ski\\back\\back4-yolo.mp4", fourcc, fps, (width, height))
 
 # ウィンドウを作成
 cv2.namedWindow('Pose Detection', cv2.WINDOW_NORMAL)
@@ -237,8 +234,8 @@ while True:
             bbox_height = current_bbox[3] - current_bbox[1]
 
             #多少余白を持たせることで確実にターゲットを検出 
-            x_margin=bbox_width/2
-            y_margin=bbox_height/5
+            x_margin=bbox_width
+            y_margin=bbox_height
 
             # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
             roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -334,22 +331,22 @@ while True:
 
         score = float(results[0].boxes.conf[0].cpu().numpy())
 
-        parallel, angle = isParallel(keypoints)
+        #parallel, angle = isParallel(keypoints)
           
     confidence.append((time, score))
-    angles.append((time, angle))
+    #angles.append((time, angle))
 
     # 結果を表示
     cv2.imshow('Pose Detection', annotated_frame)
 
-    out.write(annotated_frame)
+    #out.write(annotated_frame)
 
     # 'q'キーまたはウィンドウの×ボタンで終了
     if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Pose Detection', cv2.WND_PROP_VISIBLE) < 1:
         break
 
 # 統計処理
-
+'''
 # bbox検出成功のフレーム数
 total_frames = frame_idx
 exit_score_frames = [score for t, score in confidence if score is not None]
@@ -387,7 +384,7 @@ if streak_length >= judge:
 failOfConf = sum(1 for t, score in confidence if score is None)
 failOfAngle = sum(1 for t, angle in angles if angle is None)
 
-print('【YOLO】-back4.mp4')
+print('【YOLO】-far26.mp4')
 print()
 print(f'総フレーム数: {total_frames}')
 print()
@@ -400,8 +397,10 @@ print()
 print(f'bbox検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfConf}')
 print()
 print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
-
+'''
 scoreGraph(confidence)
-angleGraph(angles)
+#angleGraph(angles)
+
+print(fps)
 
 cap.release()
