@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>スキーのパラレルスタンスチェックシステム</title>
+
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background-image: url('static/background.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-attachment: fixed;
+            margin: 0;
+            padding-top: 80px; /* ヘッダー高さ分の余白を確保 */
+        }
+
+        header {
+            position: fixed;       /* 常に上に固定 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #222; /* 黒背景 */
+            color: white;           /* 文字色は白 */
+            font-size: 30px;
+            font-weight: bold;
+            display: flex;               /* 横並びに */
+            justify-content: space-between; /* 左右に配置 */
+            align-items: center;         /* 縦位置を中央に */
+            padding: 15px 30px;
+            box-sizing: border-box;
+            z-index: 1000;
+        }
+
+        .site-title a {
+            color: white;
+            text-decoration: none;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        /* ナビゲーションリンク */
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .nav-links a.active {
+            color: #ffcc00; /* 現在のページを強調 */
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="file"], button, select {
+            padding: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow:
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
+        p.error {
+            color: red;
+            font-weight: bold;
+        }
+
+        #frame-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .frame-label {
+            font-size: 20px;
+            font-weight: bold;
+            color: #222;
+        }
+
+        .frame-box {
+            border: 3px solid #222;
+            width: 320px;
+            height: 180px;
+            margin: 10px auto 0 auto;
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="site-title">
+            <a href="index.html">スキーのパラレルスタンスチェックシステム</a>
+        </div>
+        <div class="nav-links">
+            <a href="about.html">このサイトについて</a>
+            <a href="developer.html">開発者</a>
+        </div>
+    </header>
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="video" accept="video/*" required>
+
+        <select name="shooting_method" id="shooting_method">
+            <option value="" disabled selected>撮影方法を選択する</option>
+            <option value="front">下から撮影</option>
+            <option value="back">後ろから撮影(追い撮り含む)</option>
+        </select>
+
+        <div id="frame-container"></div>
+
+        <br>
+
+        <button type="submit">パラレルスタンスチェック開始</button>
+        
+    </form>
+
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <script>
+        const select = document.getElementById("shooting_method");
+        const frameContainer = document.getElementById("frame-container");
+
+        select.addEventListener("change", () => {
+            frameContainer.innerHTML = ""; // 一旦クリア
+
+            const selected = select.value;
+
+            if (selected === "front") {
+                frameContainer.innerHTML = `
+                    <div class="frame-label">Wクリックして四角形を作って,
+                        <br>動画の最後にあなたがどこにいるか教えて下さい。<br></div>
+                    <div class="frame-box"></div>
+                `;
+            } else if (selected === "back") {
+                frameContainer.innerHTML = `
+                    <div class="frame-label">Wクリックして四角形を作って,<br>
+                        動画の最初にあなたがどこにいるか教えて下さい。</div>
+                    <div class="frame-box"></div>
+                `;
+            }
+        });
+    </script>
+
+
+</body>
+</html>
+

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+
+    <meta charset="UTF-8">
+    <title>スキーのパラレルスタンスチェックシステム-結果</title>
+
+    <style>
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background-image: url('static/background.jpg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-attachment: fixed;
+            margin: 0;
+            padding-top: 80px; /* ヘッダー高さ分の余白を確保 */
+        }
+
+        header {
+            position: fixed;       /* 常に上に固定 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #222; /* 黒背景 */
+            color: white;           /* 文字色は白 */
+            font-size: 30px;
+            font-weight: bold;
+            display: flex;               /* 横並びに */
+            justify-content: space-between; /* 左右に配置 */
+            align-items: center;         /* 縦位置を中央に */
+            padding: 15px 30px;
+            box-sizing: border-box;
+            z-index: 1000;
+        }
+
+        .site-title a {
+            color: white;
+            text-decoration: none;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        /* ナビゲーションリンク */
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .nav-links a.active {
+            color: #ffcc00; /* 現在のページを強調 */
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        video {
+            margin: 20px 0;           /* 上下の余白 */
+            max-width: 90%;           /* 画面幅に収まるように調整 */
+            height: auto;
+        }
+
+        p {
+            font-size: 18px;
+            text-align: center;
+        }
+
+        a {
+            margin-top: 20px;
+            text-decoration: none;
+            color: #007BFF;
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <header>
+        <div class="site-title">
+            <a href="index.html">スキーのパラレルスタンスチェックシステム</a>
+        </div>
+        <div class="nav-links">
+            <a href="about.html">このサイトについて</a>
+            <a href="developer.html">開発者</a>
+        </div>
+    </header>
+
+    <h1>解析結果</h1>
+
+    <video width="640" controls>
+
+        <source src="{{ url_for('static', filename='result_video/' + ps_result_video_name) }}" type="video/avi">
+
+        お使いのブラウザは動画を再生できません。
+
+    </video>
+
+    <a href="{{ url_for('index') }}">別の動画をアップロードする</a>
+
+</body>
+
+</html>
