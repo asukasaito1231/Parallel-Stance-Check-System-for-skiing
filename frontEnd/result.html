@@ -107,15 +107,17 @@
 
     <h1>解析結果</h1>
 
-    <video width="640" controls>
-
-        <source src="{{ url_for('static', filename='result_video/' + ps_result_video_name) }}" type="video/avi">
-
+    <video id="ps_result" width="640" controls onloadedmetadata="this.playbackRate = 0.1;">
+        <source src="{{ url_for('static', filename='result_video/slide.mp4') }}" type="video/mp4">
         お使いのブラウザは動画を再生できません。
-
-    </video>
+    </video>    
 
     <a href="{{ url_for('index') }}">別の動画をアップロードする</a>
+
+    <script>
+        const video = document.getElementById('ps_result');
+        video.playbackRate = 0.1; // 自動で遅くする
+    </script>
 
 </body>
 
