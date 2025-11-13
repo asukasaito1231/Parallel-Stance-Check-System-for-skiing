@@ -1,6 +1,5 @@
 import os
 import cv2
-from numpy.core.defchararray import center
 from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
@@ -231,7 +230,7 @@ def main(filename):
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    detect_skeleton_model=YOLO('yolo11l-pose.pt')
+    detect_skeleton_model=YOLO('yolo11n-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\frontEnd\static\uploads\{filename}.mp4")
 
@@ -282,8 +281,9 @@ def main(filename):
         print("Error: 逆再生動画を開けませんでした。")
         exit()
 
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter(r"C:\Users\asuka\thesis\frontEnd\static\result_video\slide.avi", fourcc, fps, (width, height))
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264
+    out = cv2.VideoWriter(r".\static\result_video\slide.mp4", fourcc, fps, (width, height))
+
     '''
     import ctypes
     cv2.namedWindow('Ski Parallel Stance Check', cv2.WINDOW_NORMAL)
@@ -354,7 +354,7 @@ def main(filename):
 
         time = total_frames / fps
 
-        if(time > (video_length/2)):
+        if(time > (video_length/4)):
             break;
 
         try:

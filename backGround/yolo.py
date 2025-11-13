@@ -1,6 +1,5 @@
 import os
 import cv2
-from numpy.core.defchararray import center
 from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
@@ -229,8 +228,8 @@ def main(filename):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter(r"C:\Users\asuka\thesis\frontEnd\static\result_video\slide.avi", fourcc, fps, (width, height))
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264
+    out = cv2.VideoWriter(r".\static\result_video\slide.mp4", fourcc, fps, (width, height))
 
     '''
     import ctypes
