@@ -1,51 +1,82 @@
 <!DOCTYPE html>
-
 <html lang="ja">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <title>スキーパラレルチェック</title>
+    <title>スキーのパラレルスタンスチェックシステム</title>
 
     <style>
-
         body {
             display: flex;
             flex-direction: column;
-            align-items: center;   /* 横方向の中央寄せ */
-            justify-content: center; /* 縦方向の中央寄せ（オプションでページ中央に） */
-            min-height: 100vh;     /* 画面全体の高さを確保 */
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
             font-family: Arial, sans-serif;
-            background-image: url('static/background.png');
+            background-image: url('static/background.jpg');
             background-size: cover;
             background-repeat: no-repeat;
             background-position: center;
             background-attachment: fixed;
+            margin: 0;
+            padding-top: 80px; /* ヘッダー高さ分の余白を確保 */
         }
 
-        h3 {
-            text-align: center; /* 見出しを中央寄せ */
-            margin-top: 50px;
-            text-shadow: 
-                -0.5px -0.5px 0 #d9f80d,
-                0.5px -0.5px 0 #d9f80d,
-                -0.5px 0.5px 0 #d9f80d,
-                0.5px 0.5px 0 #d9f80d;
+        header {
+            position: fixed;       /* 常に上に固定 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #222; /* 黒背景 */
+            color: white;           /* 文字色は白 */
+            font-size: 30px;
+            font-weight: bold;
+            display: flex;               /* 横並びに */
+            justify-content: space-between; /* 左右に配置 */
+            align-items: center;         /* 縦位置を中央に */
+            padding: 15px 30px;
+            box-sizing: border-box;
+            z-index: 1000;
+        }
+
+        .site-title a {
+            color: white;
+            text-decoration: none;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        /* ナビゲーションリンク */
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .nav-links a.active {
+            color: #ffcc00; /* 現在のページを強調 */
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
         }
 
         form {
             display: flex;
-            flex-direction: column; /* 縦に並べる */
-            align-items: center;    /* 各要素を中央に */
-            gap: 10px;              /* 各要素の間隔 */
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
 
-        input[type="file"], button {
+        input[type="file"], button, select {
             padding: 10px;
             font-size: 24px;
             font-weight: bold;
-            text-shadow: 
+            text-shadow:
                 -0.5px -0.5px 0 #d9f80d,
                 0.5px -0.5px 0 #d9f80d,
                 -0.5px 0.5px 0 #d9f80d,
@@ -57,124 +88,87 @@
             font-weight: bold;
         }
 
-        .top-left-text {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            font-size: 30px;
-            font-weight: bold;
-            color: #1b5ae1;
-            z-index: 1000;
-            text-shadow: 
-                -2px -2px 0 #000,
-                2px -2px 0 #000,
-                -2px 2px 0 #000,
-                2px 2px 0 #000;
-        }
-
-        .center-image {
-            position: absolute;
-            top: 90%;
-            left: 30%;
-            transform: translateX(-50%);
-            width: 400px;
-            height: auto;
-        }
-
-        .text-next-to-image {
-            position: absolute;
-            top: 105%;
-            left: 50%;
-            transform: translateY(-50%);
-            width: 520px;
-            font-size: 30px;
-            line-height: 3;
-        }
-
-        .three-reason {
-            position: absolute;
-            top: 150%;
-            left: 50%;
-            transform: translateX(-50%);
-            white-space: nowrap;
-        }
-
-        .box-container {
-            position: absolute;
-            top: 180%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .box-container::after {
-            content: "";
-            display: block;
-            height: 150px;
-        }
-
-        .box {
-            width: 150px;
-            height: 100px;
-            background-color: #f0f0f0;
-            border: 2px solid #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
+        #frame-container {
+            margin-top: 20px;
             text-align: center;
-            padding: 10px;
-            box-sizing: border-box;
         }
-        
-    </style>
 
+        .frame-label {
+            font-size: 20px;
+            font-weight: bold;
+            color: #222;
+        }
+
+        .frame-box {
+            border: 3px solid #222;
+            width: 320px;
+            height: 180px;
+            margin: 10px auto 0 auto;
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+    </style>
 </head>
 
 <body>
 
-    <div class="top-left-text">🎿 スキーパラレルチェック 🎿</div>
+    <header>
+        <div class="site-title">
+            <a href="index.html">スキーのパラレルスタンスチェックシステム</a>
+        </div>
+        <div class="nav-links">
+            <a href="about.html">このサイトについて</a>
+            <a href="developer.html">開発者</a>
+        </div>
+    </header>
 
     <form method="POST" enctype="multipart/form-data">
-
         <input type="file" name="video" accept="video/*" required>
 
-        <button type="submit">パラレルチェック開始</button>
+        <select name="shooting_method" id="shooting_method">
+            <option value="" disabled selected>撮影方法を選択する</option>
+            <option value="front">下から撮影</option>
+            <option value="back">後ろから撮影(追い撮り含む)</option>
+        </select>
 
+        <div id="frame-container"></div>
+
+        <br>
+
+        <button type="submit">パラレルスタンスチェック開始</button>
+        
     </form>
 
     {% if error %}
-
-    <p style="color:red;">{{ error }}</p>
-
+    <p class="error">{{ error }}</p>
     {% endif %}
 
-    <h3>🔬 このサイトでは、ユーザがアップロードしたスキー滑走動画を解析し、<br>両脛が平行(パラレル)になっているかどうかをチェックします。</h> 
-        
-    <img src="static/logo.png" alt="ロゴ" class="center-image">
+    <script>
+        const select = document.getElementById("shooting_method");
+        const frameContainer = document.getElementById("frame-container");
 
-    <p class="text-next-to-image">🎯 ある程度パラレルターンができる<br>中級スキーヤーを対象としています。</p>
+        select.addEventListener("change", () => {
+            frameContainer.innerHTML = ""; // 一旦クリア
 
-    <p class="three-reason">⭐ 中級スキーヤーがこのサイトを使うべき3つの理由</p>
+            const selected = select.value;
 
-    <div class="box-container">
-        <div class="box">ボックス1</div>
-        <div class="box">ボックス2</div>
-        <div class="box">ボックス3</div>
-    </div>
+            if (selected === "front") {
+                frameContainer.innerHTML = `
+                    <div class="frame-label">Wクリックして四角形を作って,
+                        <br>動画の最後にあなたがどこにいるか教えて下さい。<br></div>
+                    <div class="frame-box"></div>
+                `;
+            } else if (selected === "back") {
+                frameContainer.innerHTML = `
+                    <div class="frame-label">Wクリックして四角形を作って,<br>
+                        動画の最初にあなたがどこにいるか教えて下さい。</div>
+                    <div class="frame-box"></div>
+                `;
+            }
+        });
+    </script>
 
-    <!-- <h3>中級スキーヤーがこのサイトを使うべき3つの理由</h3> 
-    
-    <ul>
-        <li>時々起こる瞬間的なミスを発見できます。</li>
-        <li>滑りの序盤・中盤・終盤のどこでミスが起きやすくなるかが分かります。</li>
-        <li>提示した結果を基に技術の改善に繋げることができます。</li>
-
-    </ul> -->
 
 </body>
-
 </html>
+
