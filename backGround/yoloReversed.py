@@ -225,13 +225,15 @@ def set_first_ROI(first_frame, first_position, width, height):
     
     return first_ROI, first_x1, first_y1, first_x2, first_y2
 
-def main():
+def main(filename):
+
+    #filenameは拡張子無し
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
     detect_skeleton_model=YOLO('yolo11l-pose.pt')
 
-    cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2.mp4")
+    cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\frontEnd\static\uploads\{filename}.mp4")
 
     if not cap.isOpened():
         print("Error: カメラまたは動画を開けませんでした。")
@@ -244,9 +246,9 @@ def main():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     # 既に逆再生ファイルがあるなら
-    if os.path.exists(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4"):
+    if os.path.exists(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4"):
 
-        cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4")
+        cap = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
         print("既に逆再生ファイルが存在します")
 
     # 逆再生ファイルが無いなら作る
@@ -254,7 +256,8 @@ def main():
 
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         # 逆再生動画を保存するための設定
-        r_out = cv2.VideoWriter(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4", fourcc, fps, (width, height))
+
+        r_out = cv2.VideoWriter(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4", fourcc, fps, (width, height))
 
         # フレームを配列に保存
         frames = []
@@ -272,7 +275,7 @@ def main():
         cap.release()
         r_out.release()
 
-        cap = cv2.VideoCapture(r"D:\\DCIM\\MOVIE\\far\\far2-reversed.mp4")
+        cap = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
         print("逆再生ファイルが存在しないので作りました")
 
     if not cap.isOpened():
@@ -280,14 +283,14 @@ def main():
         exit()
 
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter("slide.avi", fourcc, fps, (width, height))
-
+    out = cv2.VideoWriter(r"C:\Users\asuka\thesis\frontEnd\static\result_video\slide.avi", fourcc, fps, (width, height))
+    '''
     import ctypes
     cv2.namedWindow('Ski Parallel Stance Check', cv2.WINDOW_NORMAL)
     screen_w = ctypes.windll.user32.GetSystemMetrics(0)
     screen_h = ctypes.windll.user32.GetSystemMetrics(1)
     cv2.resizeWindow('Ski Parallel Stance Check', screen_w, screen_h)
-
+    '''
     # 現在のバウンディングボックスを保存
     current_bbox = None
 
@@ -514,13 +517,13 @@ def main():
         angles.append((time, angle))
 
         # 結果を表示
-        cv2.imshow('Ski Parallel Stance Check', annotated_frame)
+        #cv2.imshow('Ski Parallel Stance Check', annotated_frame)
 
         out.write(annotated_frame)
 
         # 'q'キーまたはウィンドウの×ボタンで終了
-        if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
-            break
+        #if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
+            #break
     '''
     # 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
     cap = cv2.VideoCapture("slide.avi")
@@ -605,3 +608,5 @@ def main():
     cap.release()
     out.release()
     cv2.destroyAllWindows()
+
+    
