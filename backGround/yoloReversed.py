@@ -232,7 +232,7 @@ def main(filename):
     object_detection_model = YOLO('yolo12n.pt')
     detect_skeleton_model=YOLO('yolo11n-pose.pt')
 
-    cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\frontEnd\static\uploads\{filename}.mp4")
+    cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
 
     if not cap.isOpened():
         print("Error: カメラまたは動画を開けませんでした。")
