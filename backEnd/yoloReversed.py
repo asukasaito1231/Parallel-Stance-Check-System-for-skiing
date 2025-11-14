@@ -270,8 +270,6 @@ def main(filename):
         for frame in reversed(frames):
             r_out.write(frame)
 
-        # リソースを解放
-        cap.release()
         r_out.release()
 
         cap = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
@@ -280,9 +278,6 @@ def main(filename):
     if not cap.isOpened():
         print("Error: 逆再生動画を開けませんでした。")
         exit()
-
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264
-    out = cv2.VideoWriter(r"D:\DCIM\MOVIE\temp\temp.mp4", fourcc, fps, (width, height))
 
     '''
     import ctypes
@@ -332,6 +327,8 @@ def main(filename):
 
     # 動画の最初に戻る
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    frames=[]
 
     confidence=[]
 
@@ -518,16 +515,19 @@ def main(filename):
         # 結果を表示
         #cv2.imshow('Ski Parallel Stance Check', annotated_frame)
 
-        out.write(annotated_frame)
+        frames.append(annotated_frame)
 
         # 'q'キーまたはウィンドウの×ボタンで終了
         #if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
             #break
-    
-    # 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
-    cap = cv2.VideoCapture(r"D:\DICM\MOVIE\temp\temp.mp4")
-    out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
+    cap.release()
+
+    # 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
+    #cap = cv2.VideoCapture(r"D:\DICM\MOVIE\temp\temp.mp4")#mp4v
+    #fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    #
+    '''
     # フレームを配列に保存
     frames = []
     while True:
@@ -535,18 +535,21 @@ def main(filename):
         if not ret:
             break
         frames.append(frame)
+    '''
+
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
     # フレームを逆順に保存
     for frame in reversed(frames):
         out.write(frame)
 
-    print('ユーザに提示する動画を通常再生に戻しました')
+    #print('ユーザに提示する動画を通常再生に戻しました')
     # 元ファイルを上書き
     #os.remove("slide.avi")
     #os.rename("slide-temp.avi", "slide.avi")
 
     # リソースを解放
-    cap.release()
     out.release()
     
     '''
@@ -604,8 +607,6 @@ def main(filename):
     #scoreGraph(confidence)
     #angleGraph(angles)
 
-    cap.release()
-    out.release()
     cv2.destroyAllWindows()
 
     
