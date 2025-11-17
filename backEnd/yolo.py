@@ -106,7 +106,7 @@ def scoreGraph(confidence):
     plt.savefig('YOLO-confidence.png')
     plt.close()
 
-def isParallel(keypoints, threshold=25):
+def isParallel(keypoints, threshold=15):
     
     parallel=True
 
@@ -214,7 +214,7 @@ def main(filename):
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    detect_skeleton_model=YOLO('yolo11l-pose.pt')
+    detect_skeleton_model=YOLO('yolo11n-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
 
@@ -229,7 +229,7 @@ def main(filename):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264
-    out = cv2.VideoWriter(r".\static\result_video\slide.mp4", fourcc, fps, (width, height))
+    out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
     '''
     import ctypes
@@ -285,7 +285,6 @@ def main(filename):
     angles=[]
 
     total_frames=0
-    img_save=0
 
     #フレーム読み込み開始
     while True:
@@ -301,7 +300,7 @@ def main(filename):
 
         time = total_frames / fps
 
-        if(time > (video_length/2)):
+        if(time > (video_length/8)):
             break;
 
         try:
@@ -317,7 +316,7 @@ def main(filename):
 
                 #多少余白を持たせることで確実にターゲットを検出 
                 x_margin=bbox_width
-                y_margin=bbox_height
+                y_margin=bbox_height/2
 
                 # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                 bbox_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -370,7 +369,7 @@ def main(filename):
 
                     #多少余白を持たせることで確実にターゲットを検出 
                     x_margin=bbox_width
-                    y_margin=bbox_height
+                    y_margin=bbox_height/2
 
                     # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                     skeleton_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -398,25 +397,10 @@ def main(filename):
                     score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
 
                     angle, parallel = isParallel(keypoints)
-                    
-                    #img_save += 1
-                    #filename = f"{img_save}-above15-{angle}度.png"
-                    #cv2.imwrite(filename, annotated_frame)
-                    
                     '''
                     if parallel == False:
                         # フレームを薄い赤で色付けする
                         annotated_frame = cv2.addWeighted(annotated_frame, 0.7, np.full(annotated_frame.shape, (0, 0, 255), dtype=np.uint8), 0.3, 0)
-                    
-                    # ROI以外を白く塗りつぶす
-                    annotated_frame = cv2.copyMakeBorder(
-                        annotated_frame,
-                        bbox_roi_y1, height - bbox_roi_y2,
-                        bbox_roi_x1, width - bbox_roi_x2,
-                        cv2.BORDER_CONSTANT,
-                        value=[255, 255, 255]
-                        )
-
                     '''
                     white_frame = np.full_like(frame, 255, dtype=np.uint8)
 
@@ -429,9 +413,9 @@ def main(filename):
                     angle=int(angle)
                     text = f"{angle}"
                     font = cv2.FONT_HERSHEY_SIMPLEX
-                    font_scale = 5
-                    color = (0, 0, 255)
-                    thickness = 5
+                    font_scale = 7
+                    color = (255, 0, 0) # BGR
+                    thickness = 7
 
                     # 文字サイズを取得して右下の座標を計算
                     text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
@@ -471,32 +455,7 @@ def main(filename):
         # 'q'キーまたはウィンドウの×ボタンで終了
         #if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
             #break
-    '''
-    # 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
-    cap = cv2.VideoCapture("slide.avi")
-    out = cv2.VideoWriter("slide-temp.avi", fourcc, fps, (width, height))
-
-    # フレームを配列に保存
-    frames = []
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frames.append(frame)
-
-    # フレームを逆順に保存
-    for frame in reversed(frames):
-        out.write(frame)
-
-    print('ユーザに提示する動画を通常再生に戻しました')
-    # 元ファイルを上書き
-    #os.remove("slide.avi")
-    #os.rename("slide-temp.avi", "slide.avi")
-
-    # リソースを解放
-    cap.release()
-    out.release()
-    '''
+    
     '''
     # 統計処理
     # bbox検出成功のフレーム数

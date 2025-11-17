@@ -122,7 +122,7 @@ def scoreGraph(confidence):
     plt.savefig('YOLO-confidence-roi-rewind.png')
     plt.close()
 
-def isParallel(keypoints, threshold=25):
+def isParallel(keypoints, threshold=15):
     
     parallel=True
 
@@ -222,7 +222,7 @@ def set_first_ROI(first_frame, first_position, width, height):
     # first_frameを切り取り
     first_ROI = first_frame[first_y1:first_y2, first_x1:first_x2]
     
-    return first_ROI, first_x1, first_y1, first_x2, first_y2
+    return first_ROI, first_x1, first_y1
 
 def main(filename):
 
@@ -295,7 +295,7 @@ def main(filename):
     first_position="center"
 
     # (x1, y1)は左上、(x2, y2)が右下
-    first_ROI, first_x1, first_y1, first_x2, first_y2 = set_first_ROI(first_frame, first_position, width, height)
+    first_ROI, first_x1, first_y1 = set_first_ROI(first_frame, first_position, width, height)
 
     if ret:
         try:
@@ -350,7 +350,7 @@ def main(filename):
 
         time = total_frames / fps
 
-        if(time > (video_length/4)):
+        if(time > (video_length/8)):
             break;
 
         try:
@@ -366,7 +366,7 @@ def main(filename):
 
                 #多少余白を持たせることで確実にターゲットを検出 
                 x_margin=bbox_width
-                y_margin=bbox_height
+                y_margin=bbox_height/2
 
                 # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                 bbox_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -419,7 +419,7 @@ def main(filename):
 
                     #多少余白を持たせることで確実にターゲットを検出 
                     x_margin=bbox_width
-                    y_margin=bbox_height
+                    y_margin=bbox_height/2
 
                     # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                     skeleton_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
@@ -447,27 +447,14 @@ def main(filename):
                     score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
 
                     angle, parallel = isParallel(keypoints)
-                    
-                    #img_save += 1
-                    #filename = f"{img_save}-above15-{angle}度.png"
-                    #cv2.imwrite(filename, annotated_frame)
-                    
+            
+                    white_frame = np.full_like(frame, 255, dtype=np.uint8)
+
                     '''
                     if parallel == False:
                         # フレームを薄い赤で色付けする
                         annotated_frame = cv2.addWeighted(annotated_frame, 0.7, np.full(annotated_frame.shape, (0, 0, 255), dtype=np.uint8), 0.3, 0)
-                    
-                    # ROI以外を白く塗りつぶす
-                    annotated_frame = cv2.copyMakeBorder(
-                        annotated_frame,
-                        bbox_roi_y1, height - bbox_roi_y2,
-                        bbox_roi_x1, width - bbox_roi_x2,
-                        cv2.BORDER_CONSTANT,
-                        value=[255, 255, 255]
-                        )
-
                     '''
-                    white_frame = np.full_like(frame, 255, dtype=np.uint8)
 
                     # ROI部分だけ元の画像からコピー
                     white_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
@@ -478,9 +465,9 @@ def main(filename):
                     angle=int(angle)
                     text = f"{angle}"
                     font = cv2.FONT_HERSHEY_SIMPLEX
-                    font_scale = 5
-                    color = (0, 0, 255)
-                    thickness = 5
+                    font_scale = 7
+                    color = (255, 0, 0) # BGR
+                    thickness = 7
 
                     # 文字サイズを取得して右下の座標を計算
                     text_size, _ = cv2.getTextSize(text, font, font_scale, thickness)
@@ -523,31 +510,12 @@ def main(filename):
 
     cap.release()
 
-    # 提示ファイルを逆再生して通常再生に戻してユーザに提示(つまり2回逆再生する→通常再生)
-    #cap = cv2.VideoCapture(r"D:\DICM\MOVIE\temp\temp.mp4")#mp4v
-    #fourcc = cv2.VideoWriter_fourcc(*'avc1')
-    #
-    '''
-    # フレームを配列に保存
-    frames = []
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frames.append(frame)
-    '''
-
     fourcc = cv2.VideoWriter_fourcc(*'avc1')
     out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
     # フレームを逆順に保存
     for frame in reversed(frames):
         out.write(frame)
-
-    #print('ユーザに提示する動画を通常再生に戻しました')
-    # 元ファイルを上書き
-    #os.remove("slide.avi")
-    #os.rename("slide-temp.avi", "slide.avi")
 
     # リソースを解放
     out.release()
