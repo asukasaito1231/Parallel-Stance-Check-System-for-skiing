@@ -122,7 +122,7 @@ def scoreGraph(confidence):
     plt.savefig('YOLO-confidence-roi-rewind.png')
     plt.close()
 
-def isParallel(keypoints, threshold=15):
+def isParallel(keypoints):
     
     parallel=True
 
@@ -162,10 +162,7 @@ def isParallel(keypoints, threshold=15):
             return 50, False
         '''
 
-        if(angle > threshold):
-            parallel=False
-
-        return angle,parallel
+        return angle
         
     except (IndexError, TypeError, ValueError) as e:
         print(f"isParallel関数でエラー: {e}")
@@ -446,15 +443,9 @@ def main(filename):
 
                     score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
 
-                    angle, parallel = isParallel(keypoints)
+                    angle = isParallel(keypoints)
             
                     white_frame = np.full_like(frame, 255, dtype=np.uint8)
-
-                    '''
-                    if parallel == False:
-                        # フレームを薄い赤で色付けする
-                        annotated_frame = cv2.addWeighted(annotated_frame, 0.7, np.full(annotated_frame.shape, (0, 0, 255), dtype=np.uint8), 0.3, 0)
-                    '''
 
                     # ROI部分だけ元の画像からコピー
                     white_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
@@ -509,6 +500,39 @@ def main(filename):
             #break
 
     cap.release()
+
+    notParallel = [] # パラレルじゃない区間=15度以上が8回以上連続したら
+    threshold = 15 # 15度以上
+    least = 8 # 8回以上連続
+
+    start = None # 開始インデックス
+    count = 0 # 今連続している長さ
+
+    for i, angle in enumerate(angles):
+
+        if angle >= threshold:
+            # 連続開始
+            if start is None:
+                start = i
+            count += 1
+
+        else:
+            # 途切れたのでチェックして終了
+            if count >= least:
+                notParallel.append((start, i - 1))
+            start = None
+            count = 0
+
+    # 配列が終わった所でチェック
+    if count >= least:
+        notParallel.append((start, len(angles) - 1))
+
+    for start, end in notParallel:
+        for i in range(start, end + 1):
+            overlay = frames[i].copy()
+            red = np.full_like(overlay, (0, 0, 255))  # 赤
+            alpha = 0.3
+            cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
 
     fourcc = cv2.VideoWriter_fourcc(*'avc1')
     out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
