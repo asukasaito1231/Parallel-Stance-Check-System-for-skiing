@@ -3,7 +3,7 @@
 <head>
 
     <meta charset="UTF-8">
-    <title>結果</title>
+    <title>開発者</title>
 
     <style>
         
@@ -82,12 +82,6 @@
             text-align: center;
         }
 
-        video {
-            margin: 20px 0;           /* 上下の余白 */
-            max-width: 90%;           /* 画面幅に収まるように調整 */
-            height: auto;
-        }
-
         p {
             font-size: 18px;
             text-align: center;
@@ -118,33 +112,9 @@
         </div>
     </header>
 
-    <h1>解析結果</h1>
-
-    <video id="ps_result" width="640" controls loop>
-        <source src="{{ url_for('static', filename='result_video/ps_check_result.mp4') }}" type="video/mp4">
-        お使いのブラウザは動画を再生できません。
-    </video>
+    <h1>開発者</h1>
 
     <a href="{{ url_for('index') }}">別の動画をアップロードする</a>
-
-    <script>
-
-        const video = document.getElementById("ps_result");
-        const slowRate = 0.0625;  // 1/16倍速（ブラウザがサポートする最遅速度）
-    
-        // 動画が読み込まれたら速度設定
-        video.onloadedmetadata = () => {
-            video.playbackRate = slowRate;
-        };
-    
-        // ループなどで速度が戻らないように常に監視して再設定
-        video.addEventListener('ended', () => {
-            video.playbackRate = slowRate;
-            video.currentTime = 0;          // 念のため先頭へ
-            video.play(); 
-        });
-    
-    </script>
 
 </body>
 

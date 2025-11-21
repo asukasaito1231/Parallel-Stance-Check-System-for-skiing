@@ -22,45 +22,56 @@
         }
 
         header {
-            position: fixed;       /* 常に上に固定 */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            background-color: #222; /* 黒背景 */
-            color: white;           /* 文字色は白 */
-            font-size: 30px;
-            font-weight: bold;
-            display: flex;               /* 横並びに */
-            justify-content: space-between; /* 左右に配置 */
-            align-items: center;         /* 縦位置を中央に */
-            padding: 15px 30px;
+            height: 80px;            /* 固定高さ（必要なら 70〜90px に調整） */
+            background-color: #222;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;     /* 子要素を垂直中央に揃える */
+            padding: 0 30px;         /* 上下パディングは不要にして高さを固定 */
             box-sizing: border-box;
             z-index: 1000;
         }
 
+        /* サイトタイトルとナビの縦位置を厳密に揃えるため line-height を header 高さにする */
+        .site-title a,
+        .nav-links a {
+            line-height: 80px;    /* header と同じ高さで縦中央揃え */
+        }
+
+        /* 既存のフォントサイズは変えない（あなたの指定をそのまま維持） */
         .site-title a {
             color: white;
             text-decoration: none;
-            font-size: 22px;
+            font-size: 24px;   /* 既存値 */
             font-weight: bold;
-        }
-
-        /* ナビゲーションリンク */
-        .nav-links {
-            display: flex;
-            gap: 20px;
         }
 
         .nav-links a {
             color: white;
             text-decoration: none;
-            font-size: 18px;
+            font-size: 18pt;
+            white-space: nowrap;
+            margin-right: 30px;  /* ← ここで調整（例：30px） */
         }
 
+        /* 最後のリンクだけ右に余白を付けない */
+        .nav-links a:last-child {
+            margin-right: 0;
+        }
+
+        /* active は色だけ変更（サイズなどは一切触らない）*/
+        .site-title a.active,
         .nav-links a.active {
-            color: #ffcc00; /* 現在のページを強調 */
+            color: #ffcc00;
         }
 
+        /* hover はそのまま維持 */
+        .site-title a:hover,
         .nav-links a:hover {
             text-decoration: underline;
         }
@@ -114,11 +125,13 @@
 
     <header>
         <div class="site-title">
-            <a href="index.html">スキーのパラレルスタンスチェックシステム</a>
+            <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
+                スキーのパラレルスタンスチェックシステム
+            </a>
         </div>
         <div class="nav-links">
-            <a href="about.html">このサイトについて</a>
-            <a href="developer.html">開発者</a>
+            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">このサイトの使い方</a>
+            <a href="{{ url_for('developer') }}" class="{% if request.endpoint == 'developer' %}active{% endif %}">開発者</a>
         </div>
     </header>
 
