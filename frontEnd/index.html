@@ -110,7 +110,7 @@
             width: 320px;
             height: 180px;
             margin: 10px auto 0 auto;
-            background-color: rgba(255, 255, 255, 0.4);
+            background-color: hsl(240, 37%, 77%);
 
             position: relative;
             overflow: hidden;
@@ -193,7 +193,6 @@
     });
 
     function setupRectangleSelector() {
-
         const frameBox = document.querySelector(".frame-box");
         if (!frameBox) return;
 
@@ -201,13 +200,16 @@
         let startX = 0, startY = 0;
         let rect = null;
 
-        // ダブルクリックで削除
+        // ダブルクリックで削除（任意）
         frameBox.addEventListener("dblclick", () => {
             frameBox.innerHTML = "";
         });
 
         frameBox.addEventListener("mousedown", (e) => {
             if (e.detail === 2) return;
+
+            // ★ ここで既存の四角形を消す（常に1つだけ）
+            frameBox.innerHTML = "";
 
             const box = frameBox.getBoundingClientRect();
             startX = e.clientX - box.left;
@@ -249,7 +251,7 @@
             const x2 = Math.max(startX, endX);
             const y2 = Math.max(startY, endY);
 
-            // Flask へ送る hidden input に値をセット
+            // hidden に保存
             document.getElementById("x1").value = x1;
             document.getElementById("y1").value = y1;
             document.getElementById("x2").value = x2;
@@ -258,6 +260,7 @@
             console.log("ROI:", x1, y1, x2, y2);
         });
     }
+
 </script>
 
 </body>
