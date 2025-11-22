@@ -112,7 +112,6 @@
             height: 180px;
             margin: 10px auto 0 auto;
             background-color: hsl(240, 37%, 77%);
-
             position: relative;
             overflow: hidden;
         }
@@ -141,6 +140,7 @@
 </header>
 
 <form method="POST" enctype="multipart/form-data">
+
     <input type="file" name="video" accept="video/*" required>
 
     <select name="shooting_method" id="shooting_method">
@@ -152,10 +152,10 @@
     <div id="frame-container"></div>
 
     <!-- ROI 座標を Flask に送る -->
-    <input type="hidden" name="x1" id="x1">
-    <input type="hidden" name="y1" id="y1">
-    <input type="hidden" name="x2" id="x2">
-    <input type="hidden" name="y2" id="y2">
+    <input type="hidden" name="first_x1" id="first_x1">
+    <input type="hidden" name="first_y1" id="first_y1">
+    <input type="hidden" name="first_x2" id="first_x2">
+    <input type="hidden" name="first_y2" id="first_y2">
 
     <br>
 
@@ -177,14 +177,14 @@
 
         if (selected === "front") {
             frameContainer.innerHTML = `
-                <div class="frame-label">Wクリックして四角形を作って,<br>
-                    動画の最後にあなたがどこにいるか教えて下さい。</div>
+                <div class="frame-label">四角形を作って,<br>
+                    スキー動画の最後にあなたがどこにいるか教えて下さい。</div>
                 <div class="frame-box"></div>
             `;
         } else if (selected === "back") {
             frameContainer.innerHTML = `
-                <div class="frame-label">Wクリックして四角形を作って,<br>
-                    動画の最初にあなたがどこにいるか教えて下さい。</div>
+                <div class="frame-label">四角形を作って,<br>
+                    スキー動画の最初にあなたがどこにいるか教えて下さい。</div>
                 <div class="frame-box"></div>
             `;
         }
@@ -252,18 +252,16 @@
             const endX = e.clientX - box.left;
             const endY = e.clientY - box.top;
 
-            const x1 = Math.min(startX, endX);
-            const y1 = Math.min(startY, endY);
-            const x2 = Math.max(startX, endX);
-            const y2 = Math.max(startY, endY);
+            const first_x1 = Math.min(startX, endX);
+            const first_y1 = Math.min(startY, endY);
+            const first_x2 = Math.max(startX, endX);
+            const first_y2 = Math.max(startY, endY);
 
             // hidden に保存
-            document.getElementById("x1").value = x1;
-            document.getElementById("y1").value = y1;
-            document.getElementById("x2").value = x2;
-            document.getElementById("y2").value = y2;
-
-            console.log("ROI:", x1, y1, x2, y2);
+            document.getElementById("first_x1").value = first_x1;
+            document.getElementById("first_y1").value = first_y1;
+            document.getElementById("first_x2").value = first_x2;
+            document.getElementById("first_y2").value = first_y2;
         });
     }
 
