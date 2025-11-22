@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>スキーのパラレルスタンスチェックシステム</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon/index.png') }}">
 
     <style>
         body {
@@ -193,25 +194,25 @@
     });
 
     function setupRectangleSelector() {
+
         const frameBox = document.querySelector(".frame-box");
+
         if (!frameBox) return;
 
         let isDrawing = false;
         let startX = 0, startY = 0;
         let rect = null;
 
-        // ダブルクリックで削除（任意）
-        frameBox.addEventListener("dblclick", () => {
-            frameBox.innerHTML = "";
-        });
-
+        // ROIの左上座標の決定
         frameBox.addEventListener("mousedown", (e) => {
-            if (e.detail === 2) return;
 
-            // ★ ここで既存の四角形を消す（常に1つだけ）
+            // 常に1つだけ四角形を残す
             frameBox.innerHTML = "";
 
+            // 画面全体でframe-boxがどこにいるか取得
             const box = frameBox.getBoundingClientRect();
+
+            // ROIのx1、y1をframe-box内での相対座標に変換
             startX = e.clientX - box.left;
             startY = e.clientY - box.top;
 
@@ -225,9 +226,12 @@
             frameBox.appendChild(rect);
         });
 
+        // マウスを動かしてる時のみ動く→リアルタイムで四角形が更新される
         frameBox.addEventListener("mousemove", (e) => {
+
             if (!isDrawing) return;
 
+            // ROIのx2、y2をframe-box内での相対座標に変換
             const box = frameBox.getBoundingClientRect();
             const mouseX = e.clientX - box.left;
             const mouseY = e.clientY - box.top;
@@ -238,7 +242,9 @@
             rect.style.top = Math.min(mouseY, startY) + "px";
         });
 
+        // ROIの右下座標の決定→必要なROI情報が取得出来たのでyolo関数に渡す
         frameBox.addEventListener("mouseup", (e) => {
+
             if (!isDrawing) return;
             isDrawing = false;
 
