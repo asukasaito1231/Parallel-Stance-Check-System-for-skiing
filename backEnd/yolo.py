@@ -3,6 +3,7 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
+from flask import Flask, render_template
 
 # 角度グラフ表示関数-時間軸反転プロット
 def angleGraph(angles):
@@ -106,7 +107,7 @@ def scoreGraph(confidence):
     plt.savefig('YOLO-confidence.png')
     plt.close()
 
-def isParallel(keypoints, threshold=15):
+def isParallel(keypoints):
     
     parallel=True
 
@@ -146,10 +147,7 @@ def isParallel(keypoints, threshold=15):
             return 50, False
         '''
 
-        if(angle > threshold):
-            parallel=False
-
-        return angle,parallel
+        return angle
         
     except (IndexError, TypeError, ValueError) as e:
         print(f"isParallel関数でエラー: {e}")
@@ -170,53 +168,23 @@ def angle_between(v1, v2):
 
     return angle
 
-def set_first_ROI(first_frame, first_position, width, height):
-
-    # 各5つの初期ポジションに応じてROIを設定
-    if first_position == "top_left":
-        first_x1 = 0
-        first_y1 = 0
-        first_x2 = width // 2
-        first_y2 = height // 2
-        
-    elif first_position == "top_right":
-        first_x1 = width // 2
-        first_y1 = 0
-        first_x2 = width
-        first_y2 = height // 2
-        
-    elif first_position == "under_left":
-        first_x1 = 0
-        first_y1 = height // 2
-        first_x2 = width // 2
-        first_y2 = height
-
-    elif first_position == "under_right":
-        first_x1 = width // 2
-        first_y1 = height // 2
-        first_x2 = width
-        first_y2 = height
-        
-    elif first_position == "center":
-        first_x1 = width // 4
-        first_y1 = height // 4
-        first_x2 = width * 3 // 4
-        first_y2 = height * 3 // 4
-
-    # first_frameを切り取り
-    first_ROI = first_frame[first_y1:first_y2, first_x1:first_x2]
-    
-    return first_ROI, first_x1, first_y1, first_x2, first_y2
-
-def main(filename):
+def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     #filenameは拡張子無し
 
+    print('yolo_mainに入った')
+
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    detect_skeleton_model=YOLO('yolo11n-pose.pt')
+    skeleton_detection_model=YOLO('yolo11n-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
+
+    print(filename)
+    print(first_x1)
+    print(first_y1)
+    print(first_x2)
+    print(first_y2)
 
     if not cap.isOpened():
         print("Error: カメラまたは動画を開けませんでした。")
@@ -228,57 +196,43 @@ def main(filename):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264
-    out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
-
-    '''
-    import ctypes
-    cv2.namedWindow('Ski Parallel Stance Check', cv2.WINDOW_NORMAL)
-    screen_w = ctypes.windll.user32.GetSystemMetrics(0)
-    screen_h = ctypes.windll.user32.GetSystemMetrics(1)
-    cv2.resizeWindow('Ski Parallel Stance Check', screen_w, screen_h)
-    '''
+    print(width)
+    print(height)
+    
     # 現在のバウンディングボックスを保存
     current_bbox = None
 
     # 最初のフレームを読み込んで人物を検出
     ret, first_frame = cap.read()
 
-    first_position="center"
-
     # (x1, y1)は左上、(x2, y2)が右下
-    first_ROI, first_x1, first_y1, first_x2, first_y2 = set_first_ROI(first_frame, first_position, width, height)
+    first_ROI=first_frame[first_y1:first_y2, first_x1:first_x2]
 
-    if ret:
-        try:
-            # 物体検出を実行（人間のみ検出）
-            first_results = object_detection_model(first_ROI, classes=[0])
+    # 物体検出を実行（人間のみ検出）
+    first_results = object_detection_model(first_ROI, classes=[0])
 
-            if len(first_results[0].boxes)==1:
+    if len(first_results[0].boxes)==1:
+        
+        # 相対座標→絶対座標の変換、ROIの初期値を設定
+        detected_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
 
-                # 相対座標→絶対座標の変換、ROIの初期値を設定
-                detected_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
-
-                #ROI内での相対座標 " (0, 0)=ROIの左上 " を全体フレームでの絶対座標に変換 "(0, 0)が全体フレームの左上 "
-                current_bbox = [
-                    detected_bbox[0]+first_x1,
-                    detected_bbox[1]+first_y1,
-                    detected_bbox[2]+first_x1,
-                    detected_bbox[3]+first_y1
-                    ]
+        #ROI内での相対座標 " (0, 0)=ROIの左上 " を全体フレームでの絶対座標に変換 "(0, 0)が全体フレームの左上 "
+        current_bbox = [
+            detected_bbox[0]+first_x1,
+            detected_bbox[1]+first_y1,
+            detected_bbox[2]+first_x1,
+            detected_bbox[3]+first_y1
+            ]
                 
-                print("最初のフレームでの人物発見成功")
+        print("最初のフレームでの人物発見成功")
 
-            else:
-                print("最初のフレームで人物が検出されませんでした")
-                exit()
-                
-        except Exception as e:
-            print(f"エラーが発生しました: {e}")
-            exit()
+    else:
+        return False
 
     # 動画の最初に戻る
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    frames=[]
 
     confidence=[]
 
@@ -300,7 +254,7 @@ def main(filename):
 
         time = total_frames / fps
 
-        if(time > (video_length/8)):
+        if(time > (video_length/12)):
             break;
 
         try:
@@ -380,7 +334,7 @@ def main(filename):
                     # 骨格検出用のROI領域を抽出
                     skeleton_roi = frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2]
 
-                    skeleton_results=detect_skeleton_model(skeleton_roi, classes=[0])
+                    skeleton_results=skeleton_detection_model(skeleton_roi, classes=[0])
 
                     #annotated_frame = bbox_results[0].plot()
                     annotated_frame = skeleton_results[0].plot()
@@ -396,12 +350,8 @@ def main(filename):
 
                     score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
 
-                    angle, parallel = isParallel(keypoints)
-                    '''
-                    if parallel == False:
-                        # フレームを薄い赤で色付けする
-                        annotated_frame = cv2.addWeighted(annotated_frame, 0.7, np.full(annotated_frame.shape, (0, 0, 255), dtype=np.uint8), 0.3, 0)
-                    '''
+                    angle = isParallel(keypoints)
+
                     white_frame = np.full_like(frame, 255, dtype=np.uint8)
 
                     # ROI部分だけ元の画像からコピー
@@ -447,14 +397,61 @@ def main(filename):
         confidence.append((time, score))
         angles.append((time, angle))
 
-        # 結果を表示
-        #cv2.imshow('Ski Parallel Stance Check', annotated_frame)
+        frames.append(annotated_frame)
 
-        out.write(annotated_frame)
+    cap.release()
 
-        # 'q'キーまたはウィンドウの×ボタンで終了
-        #if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
-            #break
+    notParallel = [] # パラレルじゃない区間=15度以上が8回以上連続したら
+    threshold = 10 # 10度以上
+    least = 4 # 4回以上連続
+
+    start = None # 開始インデックス
+    count = 0 # 今連続している長さ
+
+    for i, (time, angle) in enumerate(angles):
+
+        # degreeがNoneなら無視して次へ
+        if angle is None:
+            # 連続が途切れた扱いにする場合はこう：
+            if count >= least:
+                notParallel.append((start, i - 1))
+            start = None
+            count = 0
+            continue
+
+        if angle >= threshold:
+            # 連続開始
+            if start is None:
+                start = i
+            count += 1
+
+        else:
+            # 途切れたのでチェックして終了
+            if count >= least:
+                notParallel.append((start, i - 1))
+            start = None
+            count = 0
+
+    # 配列が終わった所でチェック
+    if count >= least:
+        notParallel.append((start, len(angles) - 1))
+
+    for start, end in notParallel:
+        for i in range(start, end + 1):
+            overlay = frames[i].copy()
+            red = np.full_like(overlay, (0, 0, 255))  # 赤
+            alpha = 0.3
+            cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
+
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264
+    out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
+
+    # フレームを保存
+    for frame in frames:
+        out.write(frame)
+
+    # リソースを解放
+    out.release()
     
     '''
     # 統計処理
@@ -511,6 +508,5 @@ def main(filename):
     #scoreGraph(confidence)
     #angleGraph(angles)
 
-    cap.release()
-    out.release()
     cv2.destroyAllWindows()
+    return True

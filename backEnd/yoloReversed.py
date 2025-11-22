@@ -3,6 +3,7 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
+from flask import Flask, render_template
 
 # 角度グラフ表示関数-時間軸反転プロット
 def angleGraph(angles):
@@ -183,45 +184,7 @@ def angle_between(v1, v2):
 
     return angle
 
-def set_first_ROI(first_frame, first_position, width, height):
-
-    # 各5つの初期ポジションに応じてROIを設定
-    if first_position == "top_left":
-        first_x1 = 0
-        first_y1 = 0
-        first_x2 = width // 2
-        first_y2 = height // 2
-        
-    elif first_position == "top_right":
-        first_x1 = width // 2
-        first_y1 = 0
-        first_x2 = width
-        first_y2 = height // 2
-        
-    elif first_position == "under_left":
-        first_x1 = 0
-        first_y1 = height // 2
-        first_x2 = width // 2
-        first_y2 = height
-
-    elif first_position == "under_right":
-        first_x1 = width // 2
-        first_y1 = height // 2
-        first_x2 = width
-        first_y2 = height
-        
-    elif first_position == "center":
-        first_x1 = width // 4
-        first_y1 = height // 4
-        first_x2 = width * 3 // 4
-        first_y2 = height * 3 // 4
-
-    # first_frameを切り取り
-    first_ROI = first_frame[first_y1:first_y2, first_x1:first_x2]
-    
-    return first_ROI, first_x1, first_y1
-
-def main(filename):
+def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     #filenameは拡張子無し
 
@@ -230,6 +193,12 @@ def main(filename):
     detect_skeleton_model=YOLO('yolo11n-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
+
+    print(filename)
+    print(first_x1)
+    print(first_y1)
+    print(first_x2)
+    print(first_y2)
 
     if not cap.isOpened():
         print("Error: カメラまたは動画を開けませんでした。")
@@ -276,51 +245,35 @@ def main(filename):
         print("Error: 逆再生動画を開けませんでした。")
         exit()
 
-    '''
-    import ctypes
-    cv2.namedWindow('Ski Parallel Stance Check', cv2.WINDOW_NORMAL)
-    screen_w = ctypes.windll.user32.GetSystemMetrics(0)
-    screen_h = ctypes.windll.user32.GetSystemMetrics(1)
-    cv2.resizeWindow('Ski Parallel Stance Check', screen_w, screen_h)
-    '''
     # 現在のバウンディングボックスを保存
     current_bbox = None
 
     # 最初のフレームを読み込んで人物を検出
     ret, first_frame = cap.read()
 
-    first_position="center"
-
     # (x1, y1)は左上、(x2, y2)が右下
-    first_ROI, first_x1, first_y1 = set_first_ROI(first_frame, first_position, width, height)
+    first_ROI=first_frame[first_y1:first_y2, first_x1:first_x2]
 
-    if ret:
-        try:
-            # 物体検出を実行（人間のみ検出）
-            first_results = object_detection_model(first_ROI, classes=[0])
+    # 物体検出を実行（人間のみ検出）
+    first_results = object_detection_model(first_ROI, classes=[0])
 
-            if len(first_results[0].boxes)==1:
+    if len(first_results[0].boxes)==1:
+        
+        # 相対座標→絶対座標の変換、ROIの初期値を設定
+        detected_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
 
-                # 相対座標→絶対座標の変換、ROIの初期値を設定
-                detected_bbox = first_results[0].boxes[0].xyxy[0].cpu().numpy()
-
-                #ROI内での相対座標 " (0, 0)=ROIの左上 " を全体フレームでの絶対座標に変換 "(0, 0)が全体フレームの左上 "
-                current_bbox = [
-                    detected_bbox[0]+first_x1,
-                    detected_bbox[1]+first_y1,
-                    detected_bbox[2]+first_x1,
-                    detected_bbox[3]+first_y1
-                    ]
+        #ROI内での相対座標 " (0, 0)=ROIの左上 " を全体フレームでの絶対座標に変換 "(0, 0)が全体フレームの左上 "
+        current_bbox = [
+            detected_bbox[0]+first_x1,
+            detected_bbox[1]+first_y1,
+            detected_bbox[2]+first_x1,
+            detected_bbox[3]+first_y1
+            ]
                 
-                print("最初のフレームでの人物発見成功")
+        print("最初のフレームでの人物発見成功")
 
-            else:
-                print("最初のフレームで人物が検出されませんでした")
-                exit()
-                
-        except Exception as e:
-            print(f"エラーが発生しました: {e}")
-            exit()
+    else:
+        return False
 
     # 動画の最初に戻る
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -347,7 +300,7 @@ def main(filename):
 
         time = total_frames / fps
 
-        if(time > (video_length/8)):
+        if(time > (video_length/12)):
             break;
 
         try:
@@ -490,25 +443,27 @@ def main(filename):
         confidence.append((time, score))
         angles.append((time, angle))
 
-        # 結果を表示
-        #cv2.imshow('Ski Parallel Stance Check', annotated_frame)
-
         frames.append(annotated_frame)
-
-        # 'q'キーまたはウィンドウの×ボタンで終了
-        #if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Ski Parallel Stance Check', cv2.WND_PROP_VISIBLE) < 1:
-            #break
 
     cap.release()
 
     notParallel = [] # パラレルじゃない区間=15度以上が8回以上連続したら
-    threshold = 15 # 15度以上
-    least = 8 # 8回以上連続
+    threshold = 10 # 10度以上
+    least = 4 # 4回以上連続
 
     start = None # 開始インデックス
     count = 0 # 今連続している長さ
 
-    for i, angle in enumerate(angles):
+    for i, (time, angle) in enumerate(angles):
+
+        # degreeがNoneなら無視して次へ
+        if angle is None:
+            # 連続が途切れた扱いにする場合はこう：
+            if count >= least:
+                notParallel.append((start, i - 1))
+            start = None
+            count = 0
+            continue
 
         if angle >= threshold:
             # 連続開始
@@ -600,5 +555,6 @@ def main(filename):
     #angleGraph(angles)
 
     cv2.destroyAllWindows()
+    return True
 
     
