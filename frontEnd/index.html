@@ -257,6 +257,15 @@
             const first_x2 = Math.max(startX, endX);
             const first_y2 = Math.max(startY, endY);
 
+            // 実サイズ → 320×180 の論理座標へ変換 ★★★
+            const scaleX = 320 / box.width;
+            const scaleY = 180 / box.height;
+
+            first_x1=scaleX*first_x1
+            first_y1=scaleY*first_y1
+            first_x2=scaleX*first_x2
+            first_y2=scaleY*first_y2
+
             // hidden に保存
             document.getElementById("first_x1").value = first_x1;
             document.getElementById("first_y1").value = first_y1;
