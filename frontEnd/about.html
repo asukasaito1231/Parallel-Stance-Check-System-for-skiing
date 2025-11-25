@@ -3,7 +3,7 @@
 <head>
 
     <meta charset="UTF-8">
-    <title>このサイトの使い方</title>
+    <title>使い方</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon/about.png') }}">
 
     <style>
@@ -79,21 +79,16 @@
             text-decoration: underline;
         }
 
-        h1 {
-            text-align: center;
+        .howto-img {
+            display: block;
+            margin: 20px auto;     
+            max-width: 80%;
+            height: auto;
+            border: 4px solid #000;   /* ← 黒い縁（2px）を追加 */
+            border-radius: 6px;
         }
+</style>
 
-        p {
-            font-size: 18px;
-            text-align: center;
-        }
-
-        a {
-            margin-top: 20px;
-            text-decoration: none;
-            color: #007BFF;
-            font-weight: bold;
-        }
 
     </style>
 
@@ -108,13 +103,32 @@
             </a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">このサイトの使い方</a>
+            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">使い方</a>
             <a href="{{ url_for('developer') }}" class="{% if request.endpoint == 'developer' %}active{% endif %}">開発者</a>
         </div>
     </header>
-    
 
-    <h1>このサイトの使い方</h1>
+    <h2>このシステムはスキーのパラレルスタンスをチェックします。</h2>
+
+    <h3>目視よりもパラレルスタンスの良否が可視化され更なる技術向上に寄与します。</h3>
+
+    <h3>①スキー動画をアップロードします。</h3>
+
+    <img src="{{ url_for('static', filename='howto/upload.png') }}" class="howto-img">
+
+    <h3>②撮影方法を選択します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/shooting_method.png') }}" class="howto-img">
+
+    <h3>③撮影方法に応じて【最初 or 最後】にあなたがどこにいるかを入力します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/first_position.png') }}" class="howto-img">
+
+    <h3>④パラレルスタンスチェック開始ボタンを押す。</h3>
+
+    <img src="{{ url_for('static', filename='howto/start.png') }}" class="howto-img">
+
+    <h3>⑤非パラレルスタンス区間を薄い赤で色付けされた動画が表示されます。</h3>
 
 </body>
 
