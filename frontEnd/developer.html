@@ -21,7 +21,7 @@
             background-position: center;
             background-attachment: fixed;
             margin: 0;
-            padding-top: 80px; /* ヘッダー高さ分の余白を確保 */
+            padding-top: 30px; /* ヘッダー高さ分の余白を確保 */
         }
 
         header {
@@ -79,20 +79,23 @@
             text-decoration: underline;
         }
 
-        h1 {
+        h3 {
             text-align: center;
+            font-size: 36pt;
         }
 
-        p {
-            font-size: 18px;
-            text-align: center;
+        .developer-container {
+            display: flex;
+            align-items:center;      /* 画像と文字の縦を揃える */
+            gap: 50px;           /* 画像と文字の間隔 */
         }
 
-        a {
-            margin-top: 20px;
-            text-decoration: none;
-            color: #007BFF;
-            font-weight: bold;
+        .developer-img {
+            width: 300px;
+            height: auto;
+            border: 3px solid #000;
+            border-radius: 10px;
+            margin-top: -30px;
         }
 
     </style>
@@ -108,12 +111,32 @@
             </a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">このサイトの使い方</a>
+            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">使い方</a>
             <a href="{{ url_for('developer') }}" class="{% if request.endpoint == 'developer' %}active{% endif %}">開発者</a>
         </div>
     </header>
 
-    <h1>開発者</h1>
+    <h3>開発者プロフィール</h3>
+
+    <div class="developer-container">
+    
+        <img src="{{ url_for('static', filename='developer_pic.JPG') }}" class="developer-img">
+    
+        <div class="developer-info">
+
+            <h4>会津大学 - コンピュータ理工学部 コンピュータ理工学科 - 30期生</h4>
+
+            <h4>名前 : 石綿 啓</h4>
+    
+            <h4>出身地 : 北海道</h4>
+    
+            <h4>趣味 : スキーと乃木坂のライブに行くこと。</h4>
+    
+            <h4>資格 : 全日本スキー連盟 スキー級別テスト1級、運転免許</h4>
+
+        </div>
+    
+    </div>     
 
 </body>
 
