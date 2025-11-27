@@ -176,15 +176,9 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    skeleton_detection_model=YOLO('yolo11n-pose.pt')
+    skeleton_detection_model=YOLO('yolo11l-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
-
-    print(filename)
-    print(first_x1)
-    print(first_y1)
-    print(first_x2)
-    print(first_y2)
 
     if not cap.isOpened():
         print("Error: カメラまたは動画を開けませんでした。")
@@ -196,9 +190,25 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    scale_x=width/320
+    scale_y=height/180
+
+    first_x1=int(first_x1*scale_x)
+    first_y1=int(first_y1*scale_y)
+    first_x2=int(first_x2*scale_x)
+    first_y2=int(first_y2*scale_y)
+
+    print(filename)
+    print(scale_x)
+    print(scale_y)
+    print(first_x1)
+    print(first_y1)
+    print(first_x2)
+    print(first_y2)
+    print(fps)
     print(width)
     print(height)
-    
+
     # 現在のバウンディングボックスを保存
     current_bbox = None
 
@@ -227,6 +237,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
         print("最初のフレームでの人物発見成功")
 
     else:
+        print('first fail')
         return False
 
     # 動画の最初に戻る
@@ -254,7 +265,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
         time = total_frames / fps
 
-        if(time > (video_length/12)):
+        if(time > (video_length/10)):#back1は÷４
             break;
 
         try:
@@ -269,14 +280,14 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
                 bbox_height = current_bbox[3] - current_bbox[1]
 
                 #多少余白を持たせることで確実にターゲットを検出 
-                x_margin=bbox_width
+                x_margin=bbox_width/2
                 y_margin=bbox_height/2
 
                 # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                 bbox_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
                 bbox_roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
-                bbox_roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
-                bbox_roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
+                bbox_roi_x2 = min(width-1, int(center_x + bbox_width / 2+x_margin))
+                bbox_roi_y2 = min(height-1, int(center_y + bbox_height / 2+y_margin))
 
                 bbox_roi=frame[bbox_roi_y1:bbox_roi_y2, bbox_roi_x1:bbox_roi_x2]
 
@@ -322,14 +333,14 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
                     bbox_height = current_bbox[3] - current_bbox[1]
 
                     #多少余白を持たせることで確実にターゲットを検出 
-                    x_margin=bbox_width
+                    x_margin=bbox_width/2
                     y_margin=bbox_height/2
 
                     # ROIの範囲をcenter_x, center_yを中心にbboxより少し大きい大きさで設定
                     skeleton_roi_x1 = max(0, int(center_x - bbox_width / 2-x_margin))
                     skeleton_roi_y1 = max(0, int(center_y - bbox_height / 2-y_margin))
-                    skeleton_roi_x2 = min(width, int(center_x + bbox_width / 2+x_margin))
-                    skeleton_roi_y2 = min(height, int(center_y + bbox_height / 2+y_margin))
+                    skeleton_roi_x2 = min(width-1, int(center_x + bbox_width / 2+x_margin))
+                    skeleton_roi_y2 = min(height-1, int(center_y + bbox_height / 2+y_margin))
 
                     # 骨格検出用のROI領域を抽出
                     skeleton_roi = frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2]
@@ -401,9 +412,9 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     cap.release()
 
-    notParallel = [] # パラレルじゃない区間=15度以上が8回以上連続したら
-    threshold = 10 # 10度以上
-    least = 4 # 4回以上連続
+    notParallel = [] # パラレルじゃない区間=15度以上が10回以上連続したら
+    threshold = 15 # 15度以上
+    least = 10 # 15回以上連続
 
     start = None # 開始インデックス
     count = 0 # 今連続している長さ
