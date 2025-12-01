@@ -313,7 +313,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
         time = total_frames / fps
 
-        if(time > (video_length/6)):
+        if(time > (video_length/3)):
             break;
 
         try:
@@ -502,7 +502,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
             alpha = 0.3
             cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
 
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
     out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
     # フレームを逆順に保存
