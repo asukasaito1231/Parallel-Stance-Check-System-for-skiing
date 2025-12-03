@@ -124,8 +124,6 @@ def scoreGraph(confidence):
     plt.close()
 
 def isParallel(keypoints):
-    
-    parallel=True
 
     try:
         '''
@@ -184,13 +182,33 @@ def angle_between(v1, v2):
 
     return angle
 
+def smoothing(angles):
+
+    b=angles
+
+    for i in range(1, len(angles) - 1):
+
+        z, left  = angles[i - 1]
+        time,  mid   = angles[i]
+        z, right = angles[i + 1]
+
+        # 左右が14以上、中間が13以下なら14に修正
+        if left >= 14 and mid <= 13 and right >= 14:
+            b[i] = (time, 14)
+
+        # 左右が13以下、中間が14以上なら13に修正
+        elif left <= 13 and mid >= 14 and right <= 13:
+            b[i] = (time, 13)
+
+    return b
+
 def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     #filenameは拡張子無し
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    detect_skeleton_model=YOLO('yolo11n-pose.pt')
+    detect_skeleton_model=YOLO('yolo11x-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
 
@@ -313,7 +331,10 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
         time = total_frames / fps
 
-        if(time > (video_length/3)):
+        if time < 1:
+            continue
+
+        if(time > (video_length/6)):
             break;
 
         try:
@@ -411,13 +432,16 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
                     angle = isParallel(keypoints)
             
-                    white_frame = np.full_like(frame, 255, dtype=np.uint8)
+                    judge_frame = np.full_like(frame, 255, dtype=np.uint8)
+
+                    #if angle > 15:
+                        #judge_frame=np.full_like(frame, (200, 200, 255), dtype=np.uint8)
 
                     # ROI部分だけ元の画像からコピー
-                    white_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
+                    judge_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
 
                     # 完成：ROI以外は白、サイズは変わらない
-                    annotated_frame = white_frame
+                    annotated_frame = judge_frame
                     
                     angle=int(angle)
                     text = f"{angle}"
@@ -439,6 +463,11 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
                     # テキスト描画
                     cv2.putText(annotated_frame, text, (x, y), font, font_scale, color, thickness, cv2.LINE_AA)
+
+                    #if f"{angle}.png is exists":
+                        #angle=angle+100
+
+                    #cv2.imwrite(f"{angle}.png", annotated_frame)
                     
         except Exception as e:
             print('try文に突入しなかった')
@@ -455,13 +484,26 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
         confidence.append((time, score))
         angles.append((time, angle))
-
         frames.append(annotated_frame)
 
     cap.release()
 
+    angles = smoothing(angles)
+
+    print(angles)
+
+    for i in range(len(angles)):
+
+        if angles[i][1] >= 14:
+
+            overlay = frames[i].copy()
+            red = np.full_like(overlay, (0, 0, 255))  # 赤
+            alpha = 0.3
+            cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
+
+    '''
     notParallel = [] # パラレルじゃない区間=15度以上が10回以上連続したら
-    threshold = 15 # 15度以上
+    threshold = 18 # 15度以上
     least = 10 # 10回以上連続
 
     start = None # 開始インデックス
@@ -501,6 +543,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
             red = np.full_like(overlay, (0, 0, 255))  # 赤
             alpha = 0.3
             cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
+    '''
 
     fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
     out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
