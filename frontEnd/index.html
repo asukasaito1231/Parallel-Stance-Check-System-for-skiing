@@ -80,6 +80,8 @@
         }
 
         input[type="file"], button, select {
+            margin-top: 30px;
+            margin-bottom: 20px;
             padding: 10px;
             font-size: 24px;
             font-weight: bold;
@@ -104,6 +106,12 @@
             font-size: 20px;
             font-weight: bold;
             color: #222;
+            margin-bottom: 20px;
+            text-shadow:
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
         }
 
         .frame-box {
@@ -122,6 +130,53 @@
             border: 2px dashed red;
             background: rgba(255, 0, 0, 0.15);
         }
+
+        .trim-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;  /* 全体の間隔 */
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .trim-label {
+            font-size: 30px;
+            font-weight: bold;
+            color: #222;
+            text-shadow:
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
+        .trim-unit {
+            font-size: 30px;
+            font-weight: bold;
+            color: #222;
+            text-shadow:
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
+        .trim-arrow {
+            margin: 0 10px;
+            font-size: 60px;
+            font-weight: bold;
+            color: #ff6600;  /* 矢印の色（変更OK） */
+        }
+
+        #trim_start, #trim_end {
+            font-size: 40px;
+            position: relative;
+            top: 8px;
+            padding: 4px 6px;
+            border-radius: 6px;
+        }
+
     </style>
 </head>
 
@@ -134,7 +189,7 @@
         </a>
     </div>
     <div class="nav-links">
-        <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">このサイトの使い方</a>
+        <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">使い方</a>
         <a href="{{ url_for('developer') }}" class="{% if request.endpoint == 'developer' %}active{% endif %}">開発者</a>
     </div>
 </header>
@@ -142,6 +197,24 @@
 <form method="POST" enctype="multipart/form-data">
 
     <input type="file" name="video" accept="video/*" required>
+
+    <div id="trim-container" style="text-align:center; margin-bottom:20px;">
+
+        <p>動画のトリミングが必要な場合は動画時間を指定してください</p>
+    
+        <div class="trim-row">
+            <span class="trim-label">開始時間：</span>
+            <select id="trim_start" name="trim_start"></select>
+            <span class="trim-unit">秒</span>
+    
+            <span class="trim-arrow">➡</span>
+    
+            <span class="trim-label">終了時間：</span>
+            <select id="trim_end" name="trim_end"></select>
+            <span class="trim-unit">秒</span>
+        </div>
+    
+    </div> 
 
     <select name="shooting_method" id="shooting_method">
         <option value="" disabled selected>撮影方法を選択する</option>
@@ -155,9 +228,7 @@
     <input type="hidden" name="first_x1" id="first_x1">
     <input type="hidden" name="first_y1" id="first_y1">
     <input type="hidden" name="first_x2" id="first_x2">
-    <input type="hidden" name="first_y2" id="first_y2">
-
-    <br>
+    <input type="hidden" name="first_y2" id="first_y2">    
 
     <button type="submit">パラレルスタンスチェック開始</button>
 </form>
@@ -177,14 +248,15 @@
 
         if (selected === "front") {
             frameContainer.innerHTML = `
-                <div class="frame-label">四角形を作って,<br>
-                    スキー動画の最後にあなたがどこにいるか教えて下さい。</div>
+                <div class="frame-label">Wクリックして四角形を作って,<br>
+                    スキー動画の終了時間時にターゲットがどこにいるか教えて下さい。</div>
                 <div class="frame-box"></div>
             `;
+            
         } else if (selected === "back") {
             frameContainer.innerHTML = `
-                <div class="frame-label">四角形を作って,<br>
-                    スキー動画の最初にあなたがどこにいるか教えて下さい。</div>
+                <div class="frame-label">Wクリックして四角形を作って,<br>
+                    スキー動画の開始時間時にターゲットあなたがどこにいるか教えて下さい。</div>
                 <div class="frame-box"></div>
             `;
         }
@@ -257,14 +329,10 @@
             const first_x2 = Math.max(startX, endX);
             const first_y2 = Math.max(startY, endY);
 
-            // 実サイズ → 320×180 の論理座標へ変換 ★★★
-            const scaleX = 320 / box.width;
-            const scaleY = 180 / box.height;
-
-            first_x1=scaleX*first_x1
-            first_y1=scaleY*first_y1
-            first_x2=scaleX*first_x2
-            first_y2=scaleY*first_y2
+            //first_x1=scaleX*first_x1
+            //first_y1=scaleY*first_y1
+            //first_x2=scaleX*first_x2
+            //first_y2=scaleY*first_y2
 
             // hidden に保存
             document.getElementById("first_x1").value = first_x1;
@@ -272,6 +340,66 @@
             document.getElementById("first_x2").value = first_x2;
             document.getElementById("first_y2").value = first_y2;
         });
+    }
+
+    const videoInput = document.querySelector('input[type="file"][name="video"]');
+    const trimStart = document.getElementById("trim_start");
+    const trimEnd = document.getElementById("trim_end");
+
+    videoInput.addEventListener("change", function () {
+        const file = this.files[0];
+        if (!file) return;
+
+        const video = document.createElement("video");
+        video.preload = "metadata";
+
+        video.onloadedmetadata = function () {
+            let duration = video.duration;
+
+            // duration を小数点第2位切り捨て
+            duration = Math.floor(duration * 10) / 10;
+
+            generateTrimOptions(duration);
+        };
+
+        video.src = URL.createObjectURL(file);
+    });
+
+    function generateTrimOptions(duration) {
+
+        trimStart.innerHTML = "";
+        trimEnd.innerHTML = "";
+
+        // 0.5秒刻みで duration を切り捨て
+        const maxHalf = Math.floor(duration * 2) / 2;
+
+        // ---- trim_start：0〜maxHalf を 0.5刻みで追加 ----
+        for (let t = 0; t <= maxHalf; t += 0.5) {
+            const opt = document.createElement("option");
+            opt.value = t;
+            opt.textContent = t;
+            trimStart.appendChild(opt);
+        }
+
+        // ---- trim_end：0 を抜いて 0.5〜maxHalf ----
+        for (let t = 0.5; t <= maxHalf; t += 0.5) {
+            const opt = document.createElement("option");
+            opt.value = t;
+            opt.textContent = t;
+            trimEnd.appendChild(opt);
+        }
+
+        // ---- trim_endに duration を追加（maxHalf と違う場合）----
+        if (duration !== maxHalf) {
+            const opt = document.createElement("option");
+            opt.value = duration;
+            opt.textContent = duration;
+            trimEnd.appendChild(opt);
+        }
+
+        // 初期値
+        trimStart.value = 0;
+        trimEnd.value = duration;
     }
 
 </script>
