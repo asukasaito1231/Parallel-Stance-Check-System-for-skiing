@@ -168,7 +168,7 @@ def angle_between(v1, v2):
 
     return angle
 
-def main(filename, first_y1, first_y2, first_x1, first_x2):
+def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     #filenameは拡張子無し
 
@@ -176,7 +176,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    skeleton_detection_model=YOLO('yolo11l-pose.pt')
+    skeleton_detection_model=YOLO('yolo11n-pose.pt')
 
     cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
 
@@ -184,9 +184,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
         print("Error: カメラまたは動画を開けませんでした。")
         exit()
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    video_length=total_frames/fps
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -208,6 +206,12 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
     print(fps)
     print(width)
     print(height)
+
+    # 動画のスタート位置
+    start_frame = int(fps * start)
+
+    # 動画の再生開始位置をセット
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame) 
 
     # 現在のバウンディングボックスを保存
     current_bbox = None
@@ -240,33 +244,37 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
         print('first fail')
         return False
 
-    # 動画の最初に戻る
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
     frames=[]
 
     confidence=[]
 
     angles=[]
 
-    total_frames=0
+    current_index=0
+
+    # 動画の再生開始位置をセット
+    # pos=position,
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+
+    # 動画の終了位置
+    end_frame = int(fps * end)
+
+    time=start_frame/fps
+
+    need_frame=end_frame-start_frame
 
     #フレーム読み込み開始
     while True:
 
         ret, frame = cap.read()
 
-        if not ret:
-            print("動画の再生が終了しました。")
-            print()
+        current_index+=1
+
+        if current_index > need_frame:
+            print("終了フレームに達しました。")
             break
 
-        total_frames+=1
-
-        time = total_frames / fps
-
-        if(time > (video_length/10)):#back1は÷４
-            break;
+        time = (time+current_index)/fps
 
         try:
             if current_bbox is not None:
@@ -363,13 +371,16 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
                     angle = isParallel(keypoints)
 
-                    white_frame = np.full_like(frame, 255, dtype=np.uint8)
+                    judge_frame = np.full_like(frame, 255, dtype=np.uint8)
+
+                    #if angle > 20:
+                        #judge_frame=np.full_like(frame, (200, 200, 255), dtype=np.uint8)
 
                     # ROI部分だけ元の画像からコピー
-                    white_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
+                    judge_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
 
                     # 完成：ROI以外は白、サイズは変わらない
-                    annotated_frame = white_frame
+                    annotated_frame = judge_frame
                     
                     angle=int(angle)
                     text = f"{angle}"
@@ -391,6 +402,8 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
                     # テキスト描画
                     cv2.putText(annotated_frame, text, (x, y), font, font_scale, color, thickness, cv2.LINE_AA)
+
+                    #cv2.imwrite(f"{angle}.png", annotated_frame)
                     
         except Exception as e:
             print('try文に突入しなかった')
@@ -407,14 +420,14 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
         confidence.append((time, score))
         angles.append((time, angle))
-
         frames.append(annotated_frame)
 
     cap.release()
 
+    
     notParallel = [] # パラレルじゃない区間=15度以上が10回以上連続したら
     threshold = 15 # 15度以上
-    least = 10 # 15回以上連続
+    least = 1 # 15回以上連続
 
     start = None # 開始インデックス
     count = 0 # 今連続している長さ
@@ -453,7 +466,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
             red = np.full_like(overlay, (0, 0, 255))  # 赤
             alpha = 0.3
             cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
-
+    
     fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")  # H.264
     out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
@@ -463,6 +476,10 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
 
     # リソースを解放
     out.release()
+
+    confidence=[]
+    angle=[]
+    frames=[]
     
     '''
     # 統計処理

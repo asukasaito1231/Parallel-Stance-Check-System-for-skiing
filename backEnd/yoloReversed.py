@@ -4,6 +4,7 @@ from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
 from flask import Flask, render_template
+import gc
 
 # 角度グラフ表示関数-時間軸反転プロット
 def angleGraph(angles):
@@ -192,6 +193,9 @@ def smoothing(angles):
         time,  mid   = angles[i]
         z, right = angles[i + 1]
 
+        if mid==None:
+            continue
+
         # 左右が14以上、中間が13以下なら14に修正
         if left >= 14 and mid <= 13 and right >= 14:
             b[i] = (time, 14)
@@ -202,25 +206,23 @@ def smoothing(angles):
 
     return b
 
-def main(filename, first_y1, first_y2, first_x1, first_x2):
+def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     #filenameは拡張子無し
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    detect_skeleton_model=YOLO('yolo11x-pose.pt')
+    detect_skeleton_model=YOLO('yolo11n-pose.pt')
 
-    cap = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
+    cap_original = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
 
-    if not cap.isOpened():
+    if not cap_original.isOpened():
         print("Error: カメラまたは動画を開けませんでした。")
         exit()
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    video_length=total_frames/fps
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap_original.get(cv2.CAP_PROP_FPS)
+    width = int(cap_original.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap_original.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     scale_x=width/320
     scale_y=height/180
@@ -243,7 +245,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
     # 既に逆再生ファイルがあるなら
     if os.path.exists(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4"):
 
-        cap = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
+        cap_reverse = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
         print("既に逆再生ファイルが存在します")
 
     # 逆再生ファイルが無いなら作る
@@ -255,31 +257,39 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
         r_out = cv2.VideoWriter(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4", fourcc, fps, (width, height))
 
         # フレームを配列に保存
-        frames = []
+        temps = []
         while True:
-            ret, frame = cap.read()
+            ret, temp = cap_original.read()
             if not ret:
                 break
-            frames.append(frame)
+            temps.append(temp)
 
         # フレームを逆順に保存
-        for frame in reversed(frames):
-            r_out.write(frame)
+        for temp in reversed(temps):
+            r_out.write(temp)
 
         r_out.release()
 
-        cap = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
+        temps=[]
+
+        cap_reverse = cv2.VideoCapture(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4")
         print("逆再生ファイルが存在しないので作りました")
 
-    if not cap.isOpened():
+    if not cap_reverse.isOpened():
         print("Error: 逆再生動画を開けませんでした。")
         exit()
+
+    # 動画のスタート位置➡逆再生するので動画の終了時間のフレームを見る
+    end_frame = int(fps * end)-10
+
+    # 動画の再生開始位置をセット
+    cap_original.set(cv2.CAP_PROP_POS_FRAMES, end_frame)    
 
     # 現在のバウンディングボックスを保存
     current_bbox = None
 
     # 最初のフレームを読み込んで人物を検出
-    ret, first_frame = cap.read()
+    ret, first_frame = cap_original.read()
 
     # (x1, y1)は左上、(x2, y2)が右下
     first_ROI=first_frame[first_y1:first_y2, first_x1:first_x2]
@@ -306,36 +316,45 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
         print('first fail')
         return False
 
-    # 動画の最初に戻る
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
     frames=[]
 
     confidence=[]
 
     angles=[]
 
-    total_frames=0
+    current_index=0
+
+    # 総フレーム数
+    total_frames = int(cap_reverse.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # 逆再生する場合の開始フレームex180,6s
+    reverse_start_frame=total_frames - end_frame
+
+    start_frame=int(start*fps)+10
+
+    # 逆再生する場合の終了フレームex240,8s
+    reverse_end_frame=total_frames - start_frame
+
+    # 動画の再生開始位置をセット
+    # pos=position,
+    cap_reverse.set(cv2.CAP_PROP_POS_FRAMES, reverse_start_frame)
+
+    time=reverse_start_frame/fps
+
+    need_frame=reverse_end_frame-reverse_start_frame
 
     #フレーム読み込み開始
     while True:
 
-        ret, frame = cap.read()
+        ret, frame = cap_reverse.read()
 
-        if not ret:
-            print("動画の再生が終了しました。")
-            print()
+        current_index+=1
+
+        if current_index > need_frame:
+            print("終了フレームに達しました。")
             break
 
-        total_frames+=1
-
-        time = total_frames / fps
-
-        if time < 1:
-            continue
-
-        if(time > (video_length/6)):
-            break;
+        time = (time+current_index)/fps
 
         try:
             if current_bbox is not None:
@@ -486,15 +505,13 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
         angles.append((time, angle))
         frames.append(annotated_frame)
 
-    cap.release()
+    cap_reverse.release()
 
     angles = smoothing(angles)
 
-    print(angles)
-
     for i in range(len(angles)):
 
-        if angles[i][1] >= 14:
+        if angles[i][1] is not None and angles[i][1] >= 14:
 
             overlay = frames[i].copy()
             red = np.full_like(overlay, (0, 0, 255))  # 赤
@@ -546,14 +563,16 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
     '''
 
     fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
-    out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
+    final_out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
     # フレームを逆順に保存
     for frame in reversed(frames):
-        out.write(frame)
+        final_out.write(frame)
+
+    frames=[]
 
     # リソースを解放
-    out.release()
+    final_out.release()
     
     '''
     # 統計処理
@@ -609,6 +628,9 @@ def main(filename, first_y1, first_y2, first_x1, first_x2):
     '''
     #scoreGraph(confidence)
     #angleGraph(angles)
+
+    confidence=[]
+    angle=[]
 
     cv2.destroyAllWindows()
     return True
