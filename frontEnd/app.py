@@ -23,7 +23,15 @@ def index():
         name, ext = os.path.splitext(video.filename)
         filename = name
 
-        # 2. 撮影方法が選択されてるかチェック
+        trim_start = float(request.form.get("trim_start"))
+        trim_end   = float(request.form.get("trim_end"))
+
+        # 2 . 動画の開始時間が終了時間より前かチェック
+        if trim_start >= trim_end:
+            error_msg = "動画の開始時間が終了時間より後です。"
+            return render_template("index.html", error=error_msg)
+
+        # 3. 撮影方法が選択されてるかチェック
         shooting_method = request.form.get("shooting_method")
 
         if not shooting_method:
@@ -35,7 +43,7 @@ def index():
         first_x2 = request.form.get("first_x2")
         first_y2 = request.form.get("first_y2")
 
-        # 3. 初期ROIが設定されてるかチェック
+        # 4. 初期ROIが設定されてるかチェック
         if not all([first_x1, first_y1, first_x2, first_y2]):
             if shooting_method == "back":
                 error_msg = "スキー動画の最初にあなたがどこにいるか設定されてません。"
@@ -43,6 +51,7 @@ def index():
                 error_msg = "スキー動画の最後にあなたがどこにいるか設定されてません。"
             return render_template("index.html", error=error_msg)
 
+        # エラーが無ければ撮影方法に応じたプログラムに動画と開始時間と終了時間を渡す
         first_x1 = int(float(first_x1))
         first_y1 = int(float(first_y1))
         first_x2 = int(float(first_x2))
@@ -52,9 +61,9 @@ def index():
         video.save(videopath)
 
         if shooting_method == "back":
-            fullCheck=yolo_main(filename, first_y1, first_y2, first_x1, first_x2)
+            fullCheck=yolo_main(filename, first_y1, first_y2, first_x1, first_x2, trim_start, trim_end)
         elif shooting_method == "front":
-            fullCheck=yoloReversed_main(filename, first_y1, first_y2, first_x1, first_x2)
+            fullCheck=yoloReversed_main(filename, first_y1, first_y2, first_x1, first_x2, trim_start, trim_end)
 
         if fullCheck==False:
             error_msg="あなたを追跡できませんでした。"
