@@ -314,7 +314,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     else:
         print('first fail')
-        return False
+        return False, 0
 
     frames=[]
 
@@ -339,9 +339,11 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
     # pos=position,
     cap_reverse.set(cv2.CAP_PROP_POS_FRAMES, reverse_start_frame)
 
-    time=reverse_start_frame/fps
+    first_frame=reverse_start_frame
 
     need_frame=reverse_end_frame-reverse_start_frame
+
+    notParallel=0
 
     #フレーム読み込み開始
     while True:
@@ -354,7 +356,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
             print("終了フレームに達しました。")
             break
 
-        time = (time+current_index)/fps
+        time = (first_frame+current_index)/fps
 
         try:
             if current_bbox is not None:
@@ -450,11 +452,14 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                     score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
 
                     angle = isParallel(keypoints)
+
+                    if angle >= 5:
+                        notParallel+=1
             
                     judge_frame = np.full_like(frame, 255, dtype=np.uint8)
 
-                    #if angle > 15:
-                        #judge_frame=np.full_like(frame, (200, 200, 255), dtype=np.uint8)
+                    if angle >= 5:
+                        judge_frame=np.full_like(frame, (200, 200, 255), dtype=np.uint8)
 
                     # ROI部分だけ元の画像からコピー
                     judge_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
@@ -507,8 +512,8 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     cap_reverse.release()
 
-    angles = smoothing(angles)
-
+    #angles = smoothing(angles)
+    '''
     for i in range(len(angles)):
 
         if angles[i][1] is not None and angles[i][1] >= 14:
@@ -517,51 +522,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
             red = np.full_like(overlay, (0, 0, 255))  # 赤
             alpha = 0.3
             cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
-
     '''
-    notParallel = [] # パラレルじゃない区間=15度以上が10回以上連続したら
-    threshold = 18 # 15度以上
-    least = 10 # 10回以上連続
-
-    start = None # 開始インデックス
-    count = 0 # 今連続している長さ
-
-    for i, (time, angle) in enumerate(angles):
-
-        # degreeがNoneなら無視して次へ
-        if angle is None:
-            # 連続が途切れた扱いにする場合はこう：
-            if count >= least:
-                notParallel.append((start, i - 1))
-            start = None
-            count = 0
-            continue
-
-        if angle >= threshold:
-            # 連続開始
-            if start is None:
-                start = i
-            count += 1
-
-        else:
-            # 途切れたのでチェックして終了
-            if count >= least:
-                notParallel.append((start, i - 1))
-            start = None
-            count = 0
-
-    # 配列が終わった所でチェック
-    if count >= least:
-        notParallel.append((start, len(angles) - 1))
-
-    for start, end in notParallel:
-        for i in range(start, end + 1):
-            overlay = frames[i].copy()
-            red = np.full_like(overlay, (0, 0, 255))  # 赤
-            alpha = 0.3
-            cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
-    '''
-
     fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
     final_out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
@@ -632,7 +593,11 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
     confidence=[]
     angle=[]
 
+    parallel_frame=need_frame-notParallel
+
+    success=int((parallel_frame/need_frame)*100)
+
     cv2.destroyAllWindows()
-    return True
+    return True, success
 
     
