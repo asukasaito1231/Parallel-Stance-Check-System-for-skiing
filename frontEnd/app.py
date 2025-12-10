@@ -46,9 +46,9 @@ def index():
         # 4. 初期ROIが設定されてるかチェック
         if not all([first_x1, first_y1, first_x2, first_y2]):
             if shooting_method == "back":
-                error_msg = "スキー動画の最初にあなたがどこにいるか設定されてません。"
+                error_msg = "スキー動画の開始時間時にターゲットがどこにいるか設定されてません。"
             elif shooting_method == "front":
-                error_msg = "スキー動画の最後にあなたがどこにいるか設定されてません。"
+                error_msg = "スキー動画の終了時間時にターゲットがどこにいるか設定されてません。"
             return render_template("index.html", error=error_msg)
 
         # エラーが無ければ撮影方法に応じたプログラムに動画と開始時間と終了時間を渡す
@@ -61,22 +61,23 @@ def index():
         video.save(videopath)
 
         if shooting_method == "back":
-            fullCheck=yolo_main(filename, first_y1, first_y2, first_x1, first_x2, trim_start, trim_end)
+            fullCheck, success = yolo_main(filename, first_y1, first_y2, first_x1, first_x2, trim_start, trim_end)
         elif shooting_method == "front":
-            fullCheck=yoloReversed_main(filename, first_y1, first_y2, first_x1, first_x2, trim_start, trim_end)
+            fullCheck, success = yoloReversed_main(filename, first_y1, first_y2, first_x1, first_x2, trim_start, trim_end)
 
         if fullCheck==False:
-            error_msg="あなたを追跡できませんでした。"
+            error_msg="ターゲットを追跡できませんでした。"
             return render_template("index.html", error=error_msg)
 
-        return redirect(url_for("result"))
+        return redirect(url_for("result", success=success))
 
     # GET の場合
     return render_template("index.html")
 
 @app.route("/result")
 def result():
-    return render_template("result.html")
+    success = request.args.get("success")
+    return render_template("result.html", success=success)
 
 @app.route("/about")
 def about():
