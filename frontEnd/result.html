@@ -79,10 +79,6 @@
             text-decoration: underline;
         }
 
-        h1 {
-            text-align: center;
-        }
-
         video {
             margin: 20px 0;           /* 上下の余白 */
             max-width: 90%;           /* 画面幅に収まるように調整 */
@@ -101,6 +97,32 @@
             font-weight: bold;
         }
 
+        .result-text {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow:
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
+        .ps-check-button {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow:
+                -0.5px -0.5px 0 #d9f80d,
+                0.5px -0.5px 0 #d9f80d,
+                -0.5px 0.5px 0 #d9f80d,
+                0.5px 0.5px 0 #d9f80d;
+        }
+
     </style>
 
 </head>
@@ -114,19 +136,23 @@
             </a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">このサイトの使い方</a>
+            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">使い方</a>
             <a href="{{ url_for('developer') }}" class="{% if request.endpoint == 'developer' %}active{% endif %}">開発者</a>
         </div>
     </header>
-
-    <h1>解析結果</h1>
 
     <video id="ps_result" width="640" controls loop>
         <source src="{{ url_for('static', filename='result_video/ps_check_result.mp4') }}" type="video/mp4">
         お使いのブラウザは動画を再生できません。
     </video>
 
-    <a href="{{ url_for('index') }}">別のスキー動画のパラレルスタンスをチェックする</a>
+    <p class="result-text">
+        入力されたスキー動画において、ターゲットは {{ success }}％ パラレルでした。
+    </p>
+
+    <button id="psBtn" class="ps-check-button">
+        別のスキー動画のパラレルスタンスをチェックする
+    </button>
 
     <script>
 
@@ -144,6 +170,10 @@
             video.currentTime = 0;          // 念のため先頭へ
             video.play(); 
         });
+
+        document.getElementById("psBtn").onclick = function() {
+        window.location.href = "{{ url_for('index') }}";
+        };
     
     </script>
 
