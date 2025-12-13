@@ -20,15 +20,33 @@ def index():
             error_msg = "スキー動画が選択されていません。"
             return render_template("index.html", error=error_msg)
 
-        name, ext = os.path.splitext(video.filename)
-        filename = name
+        duration = float(request.form.get("duration"))
 
-        trim_start = float(request.form.get("trim_start"))
-        trim_end   = float(request.form.get("trim_end"))
+        trim_start_raw = request.form.get("trim_start")
+        trim_end_raw   = request.form.get("trim_end")
 
-        # 2 . 動画の開始時間が終了時間より前かチェック
-        if trim_start >= trim_end:
+        # Noneだった場合は０と動画の長さをセット、数値がある場合はフロートに変換
+        trim_start = float(trim_start_raw) if trim_start_raw else 0.0
+        trim_end   = float(trim_end_raw)   if trim_end_raw   else duration
+
+        # 2-1 . 
+        if trim_start > trim_end:
             error_msg = "動画の開始時間が終了時間より後です。"
+            return render_template("index.html", error=error_msg)
+
+        # 2-2 . 
+        if trim_start == trim_end:
+            error_msg = "動画の開始時間と終了時間が同じです。"
+            return render_template("index.html", error=error_msg)
+
+        # 2-3 . 
+        if trim_start < 0 or trim_end < 0:
+            error_msg = "動画の開始時間と終了時間は負の数になってはいけません。"
+            return render_template("index.html", error=error_msg)
+
+        # 2-4
+        if trim_end > duration:
+            error_msg = "動画の終了時間が動画の長さを超えてます。。"
             return render_template("index.html", error=error_msg)
 
         # 3. 撮影方法が選択されてるかチェック
@@ -51,11 +69,14 @@ def index():
                 error_msg = "スキー動画の終了時間時にターゲットがどこにいるか設定されてません。"
             return render_template("index.html", error=error_msg)
 
-        # エラーが無ければ撮影方法に応じたプログラムに動画と開始時間と終了時間を渡す
+        # エラーが無ければ撮影方法に応じたプログラムに、ファイル名、初期ROI、開始時間、終了時間を渡す
         first_x1 = int(float(first_x1))
         first_y1 = int(float(first_y1))
         first_x2 = int(float(first_x2))
         first_y2 = int(float(first_y2))
+
+        name, ext = os.path.splitext(video.filename)
+        filename = name
             
         videopath = os.path.join(app.config["UPLOAD_FOLDER"], video.filename)
         video.save(videopath)
@@ -79,9 +100,9 @@ def result():
     success = request.args.get("success")
     return render_template("result.html", success=success)
 
-@app.route("/about")
-def about():
-    return render_template("about.html")
+@app.route("/howto")
+def howto():
+    return render_template("howto.html")
 
 @app.route("/developer")
 def developer():
