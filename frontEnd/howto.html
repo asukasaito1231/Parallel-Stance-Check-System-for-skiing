@@ -3,8 +3,8 @@
 <head>
 
     <meta charset="UTF-8">
-    <title>開発者</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon/developer.png') }}">
+    <title>使い方</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon/about.png') }}">
 
     <style>
         
@@ -21,7 +21,7 @@
             background-position: center;
             background-attachment: fixed;
             margin: 0;
-            padding-top: 30px; /* ヘッダー高さ分の余白を確保 */
+            padding-top: 80px; /* ヘッダー高さ分の余白を確保 */
         }
 
         header {
@@ -79,24 +79,17 @@
             text-decoration: underline;
         }
 
-        h3 {
-            text-align: center;
-            font-size: 36pt;
-        }
-
-        .developer-container {
-            display: flex;
-            align-items:center;      /* 画像と文字の縦を揃える */
-            gap: 50px;           /* 画像と文字の間隔 */
-        }
-
-        .developer-img {
-            width: 300px;
+        .howto-img {
+            width: 1200px;
+            display: block;
+            margin: 20px auto;     
+            max-width: 80%;
             height: auto;
-            border: 3px solid #000;
-            border-radius: 10px;
-            margin-top: -30px;
+            border: 4px solid #000;   /* ← 黒い縁（2px）を追加 */
+            border-radius: 6px;
         }
+</style>
+
 
     </style>
 
@@ -116,27 +109,33 @@
         </div>
     </header>
 
-    <h3>開発者プロフィール</h3>
+    <h2>このシステムはスキーのパラレルスタンスをチェックします。</h2>
 
-    <div class="developer-container">
-    
-        <img src="{{ url_for('static', filename='developer_pic.JPG') }}" class="developer-img">
-    
-        <div class="developer-info">
+    <h3>目視よりもパラレルスタンスのクオリティが可視化され技術の確認や向上に寄与します。</h3>
 
-            <h4>会津大学 - コンピュータ理工学部 コンピュータ理工学科 - 30期生</h4>
+    <h3>①スキー動画をアップロードします。</h3>
 
-            <h4>名前 : 石綿 啓</h4>
-    
-            <h4>出身地 : 北海道</h4>
-    
-            <h4>趣味 : スキーと乃木坂のライブに行くこと。</h4>
-    
-            <h4>資格 : 全日本スキー連盟 スキー級別テスト1級、運転免許</h4>
+    <img src="{{ url_for('static', filename='howto/upload.png') }}" class="howto-img">
 
-        </div>
-    
-    </div>     
+    <h3>②スキー動画のトリミングが必要な場合は開始時間と終了時間を入力します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/triming.png') }}" class="howto-img">
+
+    <h3>③撮影方法を選択します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/shooting_method.png') }}" class="howto-img">
+
+    <h3>④撮影方法に応じた指定時間時にターゲットがどこにいるかを入力します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/position.png') }}" class="howto-img">
+
+    <h3>⑤パラレルスタンスチェック開始ボタンを押します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/start.png') }}" class="howto-img">
+
+    <h3>⑥PSチェック結果としてカラーリングされたスキー動画とパラレル率(%)が表示されます。<br>白はパラレル、黄色は人によって判断が分かれるフォーム、赤は非パラレルを示します。</h3>
+
+    <img src="{{ url_for('static', filename='howto/result.png') }}" class="howto-img">
 
 </body>
 

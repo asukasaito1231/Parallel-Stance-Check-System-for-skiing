@@ -97,7 +97,7 @@
             font-weight: bold;
         }
 
-        .result-text {
+        .parallel-result-text, .confirm {
             margin-top: 20px;
             margin-bottom: 20px;
             padding: 10px;
@@ -129,6 +129,11 @@
 
 <body>
 
+    <p class="confirm">
+        ターゲットのPSチェックに成功しました。<br>
+        結果を表示しますので確認してください。
+    </p>
+
     <header>
         <div class="site-title">
             <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
@@ -136,17 +141,19 @@
             </a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('about') }}" class="{% if request.endpoint == 'about' %}active{% endif %}">使い方</a>
+            <a href="{{ url_for('howto') }}" class="{% if request.endpoint == 'howto' %}active{% endif %}">使い方</a>
             <a href="{{ url_for('developer') }}" class="{% if request.endpoint == 'developer' %}active{% endif %}">開発者</a>
         </div>
     </header>
 
-    <video id="ps_result" width="640" controls loop>
+
+
+    <video id="ps_result" width="800" controls loop>
         <source src="{{ url_for('static', filename='result_video/ps_check_result.mp4') }}" type="video/mp4">
         お使いのブラウザは動画を再生できません。
     </video>
 
-    <p class="result-text">
+    <p class="parallel-result-text">
         入力されたスキー動画において、ターゲットは {{ success }}％ パラレルでした。
     </p>
 
