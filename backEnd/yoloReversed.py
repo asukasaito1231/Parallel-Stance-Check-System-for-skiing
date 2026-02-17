@@ -3,8 +3,81 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 import matplotlib.pyplot as plt
-from flask import Flask, render_template
-import gc
+
+def smoothing(angles):
+
+    b=angles
+
+    for i in range(1, len(angles) - 1):
+
+        left  = angles[i - 1]
+        mid   = angles[i]
+        right = angles[i + 1]
+
+        if mid==None:
+            continue
+
+        # 前後が白なら、真ん中も白
+        if left < 14 and mid >= 14  and right < 14:
+            b[i] = ((left+right)/2)
+
+        # 前後が黄なら、真ん中も黄（真ん中が白バージョン）
+        elif 14 <= left and left < 16 and  mid < 14 and 14 <= right and right < 16:
+            b[i] = ((left+right)/2)
+
+        # 前後が黄なら、真ん中も黄（真ん中が赤バージョン）
+        elif 14 <= left and left < 16 and  mid > 16 and 14 <= right and right < 16:
+            b[i] = ((left+right)/2)
+
+        # 前後が赤なら、真ん中も赤
+        elif left >= 16 and mid < 16 and right >= 16:
+            b[i] = ((left+right)/2)
+
+        else:
+            continue
+
+    return b
+
+def colorize_frames_by_angle(angles, frames, alpha=0.3):
+    """
+    angles: [(time, angle), ...]
+    frames: [frame, frame, ...]  (BGR, OpenCV image)
+    alpha : 色の濃さ（0〜1、小さいほど薄い）
+    """
+
+    assert len(angles) == len(frames), "angles と frames の長さが一致しません"
+
+    colored_frames = []
+
+    for i, frame in enumerate(frames):
+
+        angle = angles[i]
+
+        # 何もしない場合
+        if angle is not None and angle < 14:
+            colored_frames.append(frame)
+            continue
+
+        overlay = frame.copy()
+
+        if angle is None:
+            # 薄い黒
+            color = (0, 0, 0)
+        elif 14 <= angle < 16:
+            # 薄い黄色 (BGR)
+            color = (0, 255, 255)
+        else:  # angle >= 16
+            # 薄い赤 (BGR)
+            color = (0, 0, 255)
+
+        # フレーム全体を塗る
+        overlay[:] = color
+
+        # 半透明合成
+        colored = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+        colored_frames.append(colored)
+
+    return colored_frames
 
 # 角度グラフ表示関数-時間軸反転プロット
 def angleGraph(angles):
@@ -127,11 +200,6 @@ def scoreGraph(confidence):
 def isParallel(keypoints):
 
     try:
-        '''
-        # 腰の座標
-        left_hip = keypoints[11][:2]
-        right_hip = keypoints[12][:2]
-        '''
         
         # 膝の座標
         left_knee = keypoints[13][:2]
@@ -140,27 +208,13 @@ def isParallel(keypoints):
         # 足首の座標
         left_ankle = keypoints[15][:2]
         right_ankle = keypoints[16][:2]
-        
-        '''
-        # 太ももベクトル（腰→膝）
-        left_thigh_vec = left_knee - left_hip
-        right_thigh_vec = right_knee - right_hip
-        '''
+       
         # 脛ベクトル（膝→足首）
         left_shin_vec = left_ankle - left_knee
         right_shin_vec = right_ankle - right_knee
-        '''
-        # 太ももの角度計算
-        thigh_angle = angle_between(left_thigh_vec, right_thigh_vec)
-        if thigh_angle > 30:
-            return 50, False
-        '''
+
         # 脛の角度計算
         angle = angle_between(left_shin_vec, right_shin_vec)
-        '''
-        if shin_angle > 30:
-            return 50, False
-        '''
 
         return angle
         
@@ -183,36 +237,13 @@ def angle_between(v1, v2):
 
     return angle
 
-def smoothing(angles):
-
-    b=angles
-
-    for i in range(1, len(angles) - 1):
-
-        z, left  = angles[i - 1]
-        time,  mid   = angles[i]
-        z, right = angles[i + 1]
-
-        if mid==None:
-            continue
-
-        # 左右が14以上、中間が13以下なら14に修正
-        if left >= 14 and mid <= 13 and right >= 14:
-            b[i] = (time, 14)
-
-        # 左右が13以下、中間が14以上なら13に修正
-        elif left <= 13 and mid >= 14 and right <= 13:
-            b[i] = (time, 13)
-
-    return b
-
 def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     #filenameは拡張子無し
 
     # YOLOモデルの読み込み
     object_detection_model = YOLO('yolo12n.pt')
-    detect_skeleton_model=YOLO('yolo11n-pose.pt')
+    pose_estimation_model=YOLO('yolo11x-pose.pt')
 
     cap_original = cv2.VideoCapture(rf"C:\Users\asuka\thesis\ps_check_system\static\uploads\{filename}.mp4")
 
@@ -232,15 +263,12 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
     first_x2=int(first_x2*scale_x)
     first_y2=int(first_y2*scale_y)
 
-    print('yoloReversed')
-    print(filename)
+    print(scale_x)
+    print(scale_y)
     print(first_x1)
     print(first_y1)
     print(first_x2)
     print(first_y2)
-    print(fps)
-    print(width)
-    print(height)
 
     # 既に逆再生ファイルがあるなら
     if os.path.exists(rf"D:\DCIM\MOVIE\far\{filename}-reversed.mp4"):
@@ -277,10 +305,10 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     if not cap_reverse.isOpened():
         print("Error: 逆再生動画を開けませんでした。")
-        exit()
+        return False, 0
 
     # 動画のスタート位置➡逆再生するので動画の終了時間のフレームを見る
-    end_frame = int(fps * end)-10
+    end_frame = int(fps * end)
 
     # 動画の再生開始位置をセット
     cap_original.set(cv2.CAP_PROP_POS_FRAMES, end_frame)    
@@ -318,7 +346,7 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     frames=[]
 
-    confidence=[]
+    #confidence=[]
 
     angles=[]
 
@@ -327,23 +355,21 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
     # 総フレーム数
     total_frames = int(cap_reverse.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # 逆再生する場合の開始フレームex180,6s
+    # 逆再生する場合の開始フレーム
     reverse_start_frame=total_frames - end_frame
 
-    start_frame=int(start*fps)+10
+    start_frame=int(start*fps)
 
-    # 逆再生する場合の終了フレームex240,8s
+    # 逆再生する場合の終了フレーム
     reverse_end_frame=total_frames - start_frame
 
     # 動画の再生開始位置をセット
     # pos=position,
     cap_reverse.set(cv2.CAP_PROP_POS_FRAMES, reverse_start_frame)
 
-    first_frame=reverse_start_frame
+    need_frame=reverse_end_frame - reverse_start_frame
 
-    need_frame=reverse_end_frame-reverse_start_frame
-
-    notParallel=0
+    parallel=0
 
     #フレーム読み込み開始
     while True:
@@ -356,10 +382,12 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
             print("終了フレームに達しました。")
             break
 
-        time = (first_frame+current_index)/fps
+        #time = (start_frame+current_index)/fps
 
         try:
             if current_bbox is not None:
+
+                # ターゲット検出フェーズ
 
                 # バウンディングボックスの中心座標を計算
                 center_x = int((current_bbox[0] + current_bbox[2]) / 2)
@@ -396,11 +424,11 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                         value=[255, 255, 255]
                     )
 
-                    score=None
+                    #score=None
 
                     angle=None
 
-                #ただ1人のみ検出された場合はcurrent_bboxを更新(ただし、それがターゲットとは限らない)
+                #ただ1人のみ検出された場合はcurrent_bboxを更新
                 #bboxと骨格を描画 
                 else:
 
@@ -432,12 +460,12 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                     skeleton_roi_x2 = min(width-1, int(center_x + bbox_width / 2+x_margin))
                     skeleton_roi_y2 = min(height-1, int(center_y + bbox_height / 2+y_margin))
 
-                    # 骨格検出用のROI領域を抽出
+                    # 姿勢推定用のROI領域を抽出
                     skeleton_roi = frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2]
 
-                    skeleton_results=detect_skeleton_model(skeleton_roi, classes=[0])
-
-                    #annotated_frame = bbox_results[0].plot()
+                    # ROI領域で姿勢推定を実行
+                    skeleton_results=pose_estimation_model(skeleton_roi, classes=[0])
+            
                     annotated_frame = skeleton_results[0].plot()
 
                     # キーポイント取得
@@ -449,25 +477,21 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                     #検出された1人目のキーポイントを取得
                     keypoints = keypoints_raw[0]
 
-                    score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
+                    #score = float(bbox_results[0].boxes.conf[0].cpu().numpy())
 
                     angle = isParallel(keypoints)
 
-                    if angle >= 5:
-                        notParallel+=1
-            
-                    judge_frame = np.full_like(frame, 255, dtype=np.uint8)
-
-                    if angle >= 5:
-                        judge_frame=np.full_like(frame, (200, 200, 255), dtype=np.uint8)
+                    if angle < 14:
+                        parallel+=1
+                    
+                    white_frame = np.full_like(frame, 255, dtype=np.uint8)
 
                     # ROI部分だけ元の画像からコピー
-                    judge_frame[skeleton_roi_y1:skeleton_roi_y2, skeleton_roi_x1:skeleton_roi_x2] = annotated_frame
+                    white_frame[bbox_roi_y1:bbox_roi_y2, bbox_roi_x1:bbox_roi_x2] = annotated_frame
 
                     # 完成：ROI以外は白、サイズは変わらない
-                    annotated_frame = judge_frame
-                    
-                    angle=int(angle)
+                    annotated_frame = white_frame
+                    '''
                     text = f"{angle}"
                     font = cv2.FONT_HERSHEY_SIMPLEX
                     font_scale = 7
@@ -482,17 +506,12 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                     h, w, _ = annotated_frame.shape
 
                     # 右下に配置（マージン付き）
-                    x = skeleton_roi_x2
-                    y = skeleton_roi_y2
+                    x = bbox_roi_x2
+                    y = bbox_roi_y2
 
                     # テキスト描画
                     cv2.putText(annotated_frame, text, (x, y), font, font_scale, color, thickness, cv2.LINE_AA)
-
-                    #if f"{angle}.png is exists":
-                        #angle=angle+100
-
-                    #cv2.imwrite(f"{angle}.png", annotated_frame)
-                    
+                    '''
         except Exception as e:
             print('try文に突入しなかった')
             # ROI以外を白く塗りつぶした画像をannotated_frameに格納
@@ -503,99 +522,38 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                 cv2.BORDER_CONSTANT,
                 value=[255, 255, 255]
                 )
-            score=None
+            #score=None
             angle=None
 
-        confidence.append((time, score))
-        angles.append((time, angle))
+        #confidence.append((time, score))
+        angles.append(angle)
         frames.append(annotated_frame)
 
     cap_reverse.release()
 
-    #angles = smoothing(angles)
-    '''
-    for i in range(len(angles)):
+    angles = smoothing(angles)
 
-        if angles[i][1] is not None and angles[i][1] >= 14:
+    frames=colorize_frames_by_angle(angles, frames)
 
-            overlay = frames[i].copy()
-            red = np.full_like(overlay, (0, 0, 255))  # 赤
-            alpha = 0.3
-            cv2.addWeighted(red, alpha, overlay, 1 - alpha, 0, dst=frames[i])
-    '''
     fourcc = cv2.VideoWriter_fourcc("H", "2", "6", "4")
     final_out = cv2.VideoWriter(r".\static\result_video\ps_check_result.mp4", fourcc, fps, (width, height))
 
     # フレームを逆順に保存
     for frame in reversed(frames):
         final_out.write(frame)
-
+     
+    angle=[]
     frames=[]
 
     # リソースを解放
     final_out.release()
     
-    '''
-    # 統計処理
-    # bbox検出成功のフレーム数
-    exit_score_frames = [score for t, score in confidence if score is not None]
-    num_exit_score_frames = len(exit_score_frames)
-    if total_frames > 0:
-        exit_score_percent = (num_exit_score_frames / total_frames) * 100
-    else:
-        exit_score_percent = 0.0
-
-    # bboxを検出した際の平均信頼度スコア
-    positive_scores = [score for t, score in confidence if score is not None]
-    if positive_scores:
-        avg_positive_score = np.mean(positive_scores)
-    else:
-        avg_positive_score = 0.0
-
-    # bbox検出無しが0.5秒以上続いた区間の個数
-    zero_streaks = 0
-    streak_length = 0
-    judge=fps/2
-
-    for t, score in confidence:
-        if score is None:
-            streak_length += 1
-        else:
-            if streak_length >= judge:  # 1秒以上
-                zero_streaks += 1
-            streak_length = 0
-
-    # 最後が0で終わる場合
-    if streak_length >= judge:
-        zero_streaks += 1
-
-    # 信頼度スコア配列、角度配列に含まれるNoneの個数を計上
-    failOfConf = sum(1 for t, score in confidence if score is None)
-    failOfAngle = sum(1 for t, angle in angles if angle is None)
-
-    print('【YOLO】 - far2.mp4')
-    print()
-    print(f'総フレーム数: {total_frames}')
-    print()
-    print(f'bbox検出成功のフレーム数: {num_exit_score_frames} ({exit_score_percent:.2f}%)')
-    print()
-    print(f'bboxを検出した際の平均信頼度スコア: {avg_positive_score:.4f}')
-    print()
-    print(f'bbox検出無しが0.5秒以上続いた区間の個数: {zero_streaks}')
-    print()
-    print(f'bbox検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfConf}')
-    print()
-    #print(f'足のなす角度検出失敗(2人以上、あるいは検出無し)のフレーム数: {failOfAngle}')
-    '''
     #scoreGraph(confidence)
     #angleGraph(angles)
 
-    confidence=[]
-    angle=[]
+    #confidence=[]
 
-    parallel_frame=need_frame-notParallel
-
-    success=int((parallel_frame/need_frame)*100)
+    success=int((parallel/need_frame)*100)
 
     cv2.destroyAllWindows()
     return True, success
