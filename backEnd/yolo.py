@@ -370,6 +370,8 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                 #ただ1人のみ検出された場合はcurrent_bboxを更新
                 #bboxと骨格を描画 
                 else:
+
+                    # 姿勢推定フェーズ
                     
                     detected_bbox = bbox_results[0].boxes[0].xyxy[0].cpu().numpy()
 
@@ -494,4 +496,5 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
     success=int((parallel/need_frame)*100)
 
     cv2.destroyAllWindows()
+
     return True, success
