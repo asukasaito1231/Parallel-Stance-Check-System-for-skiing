@@ -202,7 +202,7 @@
 <header>
     <div class="site-title">
         <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
-            スキーのパラレルスタンスチェックシステム
+            スキー動画のパラレルスタンスチェックシステム
         </a>
     </div>
     <div class="nav-links">
@@ -217,7 +217,7 @@
 
     <div id="trim-container" style="text-align:center; margin-bottom:20px;">
 
-        <p class="trim-text">動画のトリミングが必要な場合は動画時間を指定してください</p>
+        <p class="trim-text">動画のトリミングが必要な場合は開始時間と終了時間を指定して下さい。</p>
     
         <div class="trim-row">
             <span class="trim-label">開始時間：</span>
@@ -236,7 +236,7 @@
     <select name="shooting_method" id="shooting_method">
         <option value="" disabled selected>撮影方法を選択する</option>
         <option value="front">下から撮影</option>
-        <option value="back">後ろから撮影(追い撮り含む)</option>
+        <option value="back">後ろから撮影</option>
     </select>
 
     <div id="frame-container"></div>
@@ -264,33 +264,49 @@
     const trimEnd = document.getElementById("trim_end");
 
     videoInput.addEventListener("change", function () {
-        const file = this.files[0];
-        if (!file) return;
+    const file = this.files[0];
+    if (!file) return;
 
-        const video = document.createElement("video");
-        video.preload = "metadata";
+    const video = document.createElement("video");
+    video.preload = "auto";        // ← metadata だけにしない
+    video.muted = true;
+    video.playsInline = true;
+    video.controls = false;
 
-        video.onloadedmetadata = function () {
+    video.style.display = "none";
+    document.body.appendChild(video);
 
-            let duration = Math.floor(video.duration * 10) / 10;
+    let resolved = false;
 
-            document.getElementById("duration").value = duration;
+    function setDuration() {
+        if (resolved) return;
+        if (!isFinite(video.duration) || video.duration <= 0) return;
 
-            // value は空にする
-            trimStart.value = "";
-            trimEnd.value = "";
+        resolved = true;
 
-            // placeholder に初期値を入れる
-            trimStart.placeholder = "0";
-            trimEnd.placeholder = duration;
+        const duration = Math.floor(video.duration * 10) / 10;
+        document.getElementById("duration").value = duration;
 
-            // memory解放
-            URL.revokeObjectURL(video.src);
-        };
+        trimStart.value = "";
+        trimEnd.value = "";
+        trimStart.placeholder = "0";
+        trimEnd.placeholder = duration;
 
-        video.src = URL.createObjectURL(file);
+        URL.revokeObjectURL(video.src);
+        video.remove();
+    }
 
-    });
+    video.onloadedmetadata = setDuration;
+    video.ondurationchange = setDuration;
+    video.oncanplay = setDuration;
+
+    video.onerror = () => {
+        console.error("video error");
+        video.remove();
+    };
+
+    video.src = URL.createObjectURL(file);
+});
 
     const select = document.getElementById("shooting_method");
     const frameContainer = document.getElementById("frame-container");
@@ -302,15 +318,13 @@
 
         if (selected === "front") {
             frameContainer.innerHTML = `
-                <div class="frame-label">ドラッグ＆ドロップして四角形を作って,<br>
-                    スキー動画の終了時間時にターゲットがどこにいるか教えて下さい。</div>
+                <div class="frame-label">スキー動画の終了時間時にターゲットがどこにいるか教えて下さい。</div>
                 <div class="frame-box"></div>
             `;
             
         } else if (selected === "back") {
             frameContainer.innerHTML = `
-                <div class="frame-label">ドラッグ＆ドロップして四角形を作って,<br>
-                    スキー動画の開始時間時にターゲットあなたがどこにいるか教えて下さい。</div>
+                <div class="frame-label">スキー動画の開始時間時にターゲットあなたがどこにいるか教えて下さい。</div>
                 <div class="frame-box"></div>
             `;
         }
