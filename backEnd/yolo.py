@@ -493,8 +493,10 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
     #scoreGraph(confidence)
     #angleGraph(angles)
 
+    # パラレル率計算
     success=int((parallel/need_frame)*100)
 
     cv2.destroyAllWindows()
 
     return True, success
+
