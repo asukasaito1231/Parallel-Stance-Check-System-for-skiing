@@ -1,8 +1,14 @@
-# This is web app to check parallel stance for ski videos.
+# This is web app to check parallel stance quality from ski videos.
 
-# 1 . User uploads ski video.
-# 2 . The user enters the specified information.
-# 3 . System checks parallel stance of the ski video.
-# 4 . System provide result video of quality of parallel stance.
+# Operation
 
-author s1300109 : Ishiwata Hiromu
+# 1 . User uploads a ski video.
+# 2 . Trim the ski video is necessary.
+# 3 . Select filming method.
+# 4 . Input initial ROI
+# 5 . Press start button.
+
+# If parallel stance check is successful, message, colored ski video and parallel ratio are displayed.
+
+
+University of Aizu - s1300109 : Ishiwata Hiromu
