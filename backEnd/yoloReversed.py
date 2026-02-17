@@ -432,6 +432,8 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
                 #bboxと骨格を描画 
                 else:
 
+                    # 姿勢推定フェーズ
+
                     detected_bbox = bbox_results[0].boxes[0].xyxy[0].cpu().numpy()
 
                     #ROI内での相対座標 " (0, 0)=ROIの左上 " を全体フレームでの絶対座標に変換 "(0, 0)が全体フレームの左上 "
@@ -557,5 +559,6 @@ def main(filename, first_y1, first_y2, first_x1, first_x2, start, end):
 
     cv2.destroyAllWindows()
     return True, success
+
 
     
